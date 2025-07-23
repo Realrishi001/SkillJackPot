@@ -51,7 +51,7 @@ const CommissionMaster = () => {
 
   const fetchAdminData = async () => {
     try {
-      const res = await axios.get('http://localhost:3085/api/get-commission-details');
+      const res = await axios.get('${process.env.NEXT_PUBLIC_API_BASE_URL}/get-commission-details');
       setAdminUsernames(res.data.admins.map(a => a.userName));
       setAdminCommissions(res.data.admins); // [{ userName, commission }]
     } catch {
@@ -90,7 +90,7 @@ const CommissionMaster = () => {
 const handleAddSetCommission = async () => {
   if (newSetCommission.shopName && newSetCommission.commission !== "") {
     try {
-      const response = await axios.post('http://localhost:3085/api/update-commission', {
+      const response = await axios.post('${process.env.NEXT_PUBLIC_API_BASE_URL}/update-commission', {
         userName: newSetCommission.shopName,
         commission: Number(newSetCommission.commission)
       });
@@ -126,7 +126,7 @@ const handleAddSetCommission = async () => {
 
   const handleDeleteSetCommission = async (index) => {
     const userName = adminCommissions[index].userName;
-    await axios.delete('http://localhost:3085/api/delete-admin', { data: { userName } });
+    await axios.delete('${process.env.NEXT_PUBLIC_API_BASE_URL}/delete-admin', { data: { userName } });
     await fetchAdminData();
   };
 
