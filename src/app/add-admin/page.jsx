@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from "axios";
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaPlus, FaTimes, FaEdit, FaTrash, FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaLock, FaUserPlus } from 'react-icons/fa';
 import Sidebar from '@/Components/Sidebar/Sidebar';
 import Navbar from '@/Components/Navbar/Navbar';
+import toast from 'react-hot-toast';
 
 const page = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -17,14 +19,25 @@ const page = () => {
     password: ''
   });
 
-  // Static Admins Data for the table
-  const [admins, setAdmins] = useState([
-    { username: 'john_doe', fullName: 'John Doe', password: '1234', phone: '9876543210', email: 'john.doe@example.com' },
-    { username: 'jane_smith', fullName: 'Jane Smith', password: 'abcd', phone: '9876543211', email: 'jane.smith@example.com' },
-    { username: 'alex_lee', fullName: 'Alex Lee', password: '5678', phone: '9876543212', email: 'alex.lee@example.com' },
-    { username: 'mary_jones', fullName: 'Mary Jones', password: 'xyz123', phone: '9876543213', email: 'mary.jones@example.com' },
-    { username: 'mark_will', fullName: 'Mark Will', password: 'qwerty', phone: '9876543214', email: 'mark.will@example.com' },
-  ]);
+  const [admins, setAdmins] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  // Fetch admins from backend
+  useEffect(() => {
+    fetchAdmins();
+  }, []);
+
+  const fetchAdmins = async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/get-admins`);
+      setAdmins(res.data.admins || []);
+    } catch (error) {
+      console.error("Failed to fetch admins:", error);
+      setAdmins([]);
+    }
+    setLoading(false);
+  };
 
   // Open Modal
   const openModal = () => setIsModalOpen(true);
@@ -51,24 +64,41 @@ const page = () => {
     });
   };
 
-  // Handle form submission
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    setAdmins([...admins, formData]);
-    setFormData({
-      fullName: '',
-      username: '',
-      address: '',
-      phone: '',
-      email: '',
-      password: ''
-    });
-    closeModal();
+  // Handle form submission (create admin)
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+
+  const newAdmin = {
+    fullName: formData.fullName,
+    userName: formData.username,
+    address: formData.address,
+    phoneNumber: formData.phone,
+    emailAddress: formData.email,
+    password: formData.password
   };
 
-  // Delete admin
+  try {
+    const res = await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}/create-admin`, newAdmin, {
+      headers: { "Content-Type": "application/json" }
+    });
+    if (res.status === 201) {
+      fetchAdmins();
+      closeModal();
+      toast.success("Admin created successfully!");
+    } else {
+      toast.error(res.data.message || "Failed to add admin");
+    }
+  } catch (error) {
+    console.error("Error creating admin:", error);
+    toast.error(error?.response?.data?.message || "Error creating admin");
+  }
+};
+
+
+  // Delete admin - placeholder (implement API if backend supports)
   const deleteAdmin = (index) => {
-    setAdmins(admins.filter((_, i) => i !== index));
+    alert("Delete functionality should be implemented with a backend endpoint!");
+    // To implement: Call axios.delete here, then fetchAdmins();
   };
 
   return (
@@ -106,8 +136,6 @@ const page = () => {
             </motion.div>
           </div>
 
-          
-
           {/* Table Section */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -120,7 +148,7 @@ const page = () => {
               <p className="text-slate-300 mt-1">Manage all administrator accounts</p>
             </div>
             
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto ">
               <table className="w-full">
                 <thead className="bg-slate-50">
                   <tr>
@@ -133,51 +161,62 @@ const page = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {admins.map((admin, index) => (
-                    <motion.tr
-                      key={index}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.4, delay: index * 0.1 }}
-                      className="border-b border-slate-100 hover:bg-slate-50 transition-colors duration-200"
-                    >
-                      <td className="px-8 py-6">
-                        <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full text-sm font-bold">
-                          {index + 1}
-                        </div>
-                      </td>
-                      <td className="px-8 py-6">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gradient-to-r from-slate-600 to-slate-500 rounded-full flex items-center justify-center">
-                            <FaUser className="text-white text-sm" />
+                  {loading ? (
+                    <tr>
+                      <td colSpan={6} className="text-center py-10 text-slate-500">Loading...</td>
+                    </tr>
+                  ) : admins.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="text-center py-10 text-slate-500">No admins found</td>
+                    </tr>
+                  ) : (
+                    admins.map((admin, index) => (
+                      <motion.tr
+                        key={index}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.4, delay: index * 0.1 }}
+                        className="border-b border-slate-100 hover:bg-slate-50 transition-colors duration-200"
+                      >
+                        <td className="px-8 py-6">
+                          <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full text-sm font-bold">
+                            {index + 1}
                           </div>
-                          <span className="font-medium text-slate-700">{admin.username}</span>
-                        </div>
-                      </td>
-                      <td className="px-8 py-6 text-slate-700 font-medium">{admin.fullName}</td>
-                      <td className="px-8 py-6 text-slate-600">{admin.phone}</td>
-                      <td className="px-8 py-6 text-slate-600">{admin.email}</td>
-                      <td className="px-8 py-6">
-                        <div className="flex items-center gap-3">
-                          <motion.button
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                            className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-xl transition-colors duration-200"
-                          >
-                            <FaEdit className="text-sm" />
-                          </motion.button>
-                          <motion.button
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                            onClick={() => deleteAdmin(index)}
-                            className="p-2 bg-red-100 hover:bg-red-200 text-red-600 rounded-xl transition-colors duration-200"
-                          >
-                            <FaTrash className="text-sm" />
-                          </motion.button>
-                        </div>
-                      </td>
-                    </motion.tr>
-                  ))}
+                        </td>
+                        <td className="px-8 py-6">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gradient-to-r from-slate-600 to-slate-500 rounded-full flex items-center justify-center">
+                              <FaUser className="text-white text-sm" />
+                            </div>
+                            <span className="font-medium text-slate-700">{admin.userName || admin.username}</span>
+                          </div>
+                        </td>
+                        <td className="px-8 py-6 text-slate-700 font-medium">{admin.fullName}</td>
+                        <td className="px-8 py-6 text-slate-600">{admin.phoneNumber || admin.phone}</td>
+                        <td className="px-8 py-6 text-slate-600">{admin.emailAddress || admin.email}</td>
+                        <td className="px-8 py-6">
+                          <div className="flex items-center gap-3">
+                            <motion.button
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
+                              className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-xl transition-colors duration-200"
+                            >
+                              <FaEdit className="text-sm" />
+                            </motion.button>
+                            <motion.button
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
+                              onClick={() => deleteAdmin(index)}
+                              className="p-2 bg-red-100 hover:bg-red-200 text-red-600 rounded-xl transition-colors duration-200"
+                              disabled
+                            >
+                              <FaTrash className="text-sm" />
+                            </motion.button>
+                          </div>
+                        </td>
+                      </motion.tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -196,7 +235,7 @@ const page = () => {
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0.9, opacity: 0 }}
-                  className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+                  className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto transparent-scrollbar"
                 >
                   <div className="p-8">
                     <div className="flex justify-between items-center mb-8">
