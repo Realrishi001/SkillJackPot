@@ -2,29 +2,41 @@
 
 import React, { useState } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import axios from 'axios';
+import { toast } from 'react-hot-toast'; // <-- add this!
 
 const AdminLogin = () => {
   const router = useRouter();
 
-  // State for handling form inputs
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
 
-  // State for form validation error
-  const [error, setError] = useState('');
-
-  // Handle form submission
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!name || !password) {
-      setError('Both fields are required.');
+      toast.error('Both fields are required.');
       return;
     }
-    // Proceed with login and redirect
-    setError('');
-    router.push("/admindashboard");
+    try {
+      const res = await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}/main-admin-login`, {
+        adminId: name,
+        password
+      });
+      if (res.data.success) {
+        toast.success(res.data.message || 'Login successful!');
+        localStorage.setItem('auth_token', res.data.token);
+        router.push('/admindashboard');
+      } else {
+        toast.error(res.data.message || 'Login failed.');
+      }
+    } catch (err) {
+      const errMsg =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Invalid credentials.';
+      toast.error(errMsg);
+    }
   };
 
   return (
@@ -35,8 +47,6 @@ const AdminLogin = () => {
         <div className="absolute top-1/3 right-1/4 w-72 h-72 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl animate-pulse delay-1000"></div>
         <div className="absolute bottom-1/4 left-1/3 w-72 h-72 bg-pink-500 rounded-full mix-blend-multiply filter blur-xl animate-pulse delay-2000"></div>
       </div>
-
-      {/* Centered content */}
       <div className="relative z-20 flex items-center justify-center min-h-screen p-4">
         <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-8 rounded-3xl shadow-2xl max-w-md w-full transform transition-all duration-300 hover:scale-105">
           {/* Logo section */}
@@ -45,7 +55,6 @@ const AdminLogin = () => {
               <Image src="/Logo.png" alt="Logo" className='filter brightness-95 w-fit m-auto' width={190} height={80} />
             </div>
           </div>
-
           {/* Header */}
           <div className="text-center mb-8">
             <h2 className="text-4xl font-bold bg-gradient-to-r from-white to-purple-200 bg-clip-text text-transparent mb-2">
@@ -53,7 +62,6 @@ const AdminLogin = () => {
             </h2>
             <p className="text-gray-300 text-lg">Sign in to your admin dashboard</p>
           </div>
-
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
@@ -69,7 +77,6 @@ const AdminLogin = () => {
                 required
               />
             </div>
-            
             <div>
               <label htmlFor="password" className="block text-sm text-white mb-2">Your Password</label>
               <input
@@ -83,9 +90,6 @@ const AdminLogin = () => {
                 required
               />
             </div>
-
-            {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
-
             <div className="flex w-full">
               <button
                 type="submit"
@@ -95,8 +99,6 @@ const AdminLogin = () => {
               </button>
             </div>
           </form>
-
-          {/* Footer */}
           <div className="text-center mt-6">
             <p className="text-gray-400 text-sm">
               Secure admin access • Protected by encryption

@@ -1,8 +1,19 @@
+"use client"
+
 import Navbar from '@/Components/Navbar/Navbar'
 import Sidebar from '@/Components/Sidebar/Sidebar'
-import React from 'react'
+import React,{useEffect} from 'react'
+import { useRouter } from 'next/navigation'
 
 const page = () => {
+
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!localStorage.getItem("auth_token")) {
+      router.push("/");
+    }
+  }, []);
   return (
     <div className='flex min-h-screen bg-gray-100'>
       <div>
