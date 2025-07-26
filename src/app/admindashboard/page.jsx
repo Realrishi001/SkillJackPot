@@ -31,6 +31,8 @@ const Page = () => {
         const resDashboard = await axios.get(
           `${process.env.NEXT_PUBLIC_API_BASE_URL}/dashboard-details`
         );
+        console.log("Dashboard Data:", resDashboard.data);
+
 
         // Fetch today's points data
         const resPoints = await axios.get(
@@ -39,12 +41,17 @@ const Page = () => {
 
         setStats({
           totalAdmins: resDashboard.data.totalAdmins || 0,
-          ticketsToday: resDashboard.data.ticketsToday || 0,
+          ticketsToday: resDashboard.data.totalTickets || 0,  // FIXED
           totalPoints: resPoints.data.totalPointsToday || 0,
           netPoints: resPoints.data.netAmount || 0,
           winningPoints: resPoints.data.winningAmount || 0,
           shopPoints: resPoints.data.commissionAmount || 0
         });
+
+        console.log(resDashboard.data);
+        console.log(resPoints.data);
+
+
       } catch (err) {
         setStats({
           totalAdmins: 0,
@@ -57,8 +64,10 @@ const Page = () => {
       }
     };
 
+    console.log(stats);
+
     fetchStats();
-  }, [router]);
+  }, []);
 
   return (
     <div className='flex min-h-screen bg-gray-100'>

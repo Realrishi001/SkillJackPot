@@ -27,10 +27,7 @@ const CommissionMaster = () => {
     { packageName: 'Commission 8%', commissionRupees: 0, commissionPercent: 8 },
     { packageName: 'Commission 7%', commissionRupees: 0, commissionPercent: 7 }
   ]);
-  const [balances, setBalances] = useState([
-    { name: 'Balance 1', amount: 100 },
-    { name: 'Balance 2', amount: 200 }
-  ]);
+  const [balances, setBalances] = useState([]);
 
   // State for form inputs
   const [newPackage, setNewPackage] = useState({ packageName: '', commissionPercent: '' });
@@ -51,7 +48,7 @@ const CommissionMaster = () => {
 
   const fetchAdminData = async () => {
     try {
-      const res = await axios.get('${process.env.NEXT_PUBLIC_API_BASE_URL}/get-commission-details');
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/get-commission-details`);
       setAdminUsernames(res.data.admins.map(a => a.userName));
       setAdminCommissions(res.data.admins); // [{ userName, commission }]
     } catch {
@@ -59,6 +56,24 @@ const CommissionMaster = () => {
       setAdminCommissions([]);
     }
   };
+
+  const fetchBalances = async () => {
+  try {
+    const res = await axios.get(
+      `${process.env.NEXT_PUBLIC_API_BASE_URL}/get-balance`
+    );
+    setBalances(res.data.admins); // [{ userName, balance }]
+  } catch (error) {
+    console.error(error);
+    setBalances([]);
+  }
+};
+
+
+useEffect(() => {
+  fetchBalances();
+}, []);
+
 
   // Modal toggles
   const handleCommissionModalToggle = () => setCommissionModalOpen(!commissionModalOpen);
@@ -90,7 +105,7 @@ const CommissionMaster = () => {
 const handleAddSetCommission = async () => {
   if (newSetCommission.shopName && newSetCommission.commission !== "") {
     try {
-      const response = await axios.post('${process.env.NEXT_PUBLIC_API_BASE_URL}/update-commission', {
+      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}/update-commission`, {
         userName: newSetCommission.shopName,
         commission: Number(newSetCommission.commission)
       });
@@ -106,19 +121,29 @@ const handleAddSetCommission = async () => {
 };
 
 
-  const handleAddBalance = () => {
-    if (newBalance.shopName && newBalance.amount) {
-      setBalances([
-        ...balances,
+const handleAddBalance = async () => {
+  if (newBalance.shopName && newBalance.amount) {
+    try {
+      await axios.post(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/update-balance`,
         {
-          name: newBalance.shopName,
-          amount: parseFloat(newBalance.amount)
+          userName: newBalance.shopName,
+          amount: Number(newBalance.amount),
         }
-      ]);
+      );
+
+      // Refresh balances after successful addition
+      await fetchBalances();
+
+      // Reset form and close modal
       setNewBalance({ shopName: '', amount: '' });
       setAddBalanceModalOpen(false);
+    } catch (err) {
+      console.error(err);
     }
-  };
+  }
+};
+
 
   const handleDeletePackage = (index) => {
     setCommissionPackages(commissionPackages.filter((_, i) => i !== index));
@@ -126,7 +151,7 @@ const handleAddSetCommission = async () => {
 
   const handleDeleteSetCommission = async (index) => {
     const userName = adminCommissions[index].userName;
-    await axios.delete('${process.env.NEXT_PUBLIC_API_BASE_URL}/delete-admin', { data: { userName } });
+    await axios.delete(`${process.env.NEXT_PUBLIC_API_BASE_URL}/delete-admin`, { data: { userName } });
     await fetchAdminData();
   };
 
@@ -273,10 +298,14 @@ const handleAddSetCommission = async () => {
                 </Button>
               </div>
               <DataTable
-                headers={['Sr. No.', 'Package Name', 'Commission (Rupees)', 'Commission (%)', 'Action']}
-                data={commissionPackages}
-                onDelete={handleDeletePackage}
-              />
+  headers={['Sr. No.', 'Shop Name', 'Balance (₹)', 'Action']}
+  data={balances.map(b => ({
+    shopName: b.userName,
+    amount: b.balance
+  }))}
+  onDelete={handleDeleteBalance}
+/>
+
             </Modal>
 
             {/* Modal for Set Commission */}

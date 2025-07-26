@@ -1,85 +1,51 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FaDownload, FaCalendarAlt, FaSearch, FaFilter, FaFileExcel, FaStore, FaTicketAlt, FaCoins, FaTrophy, FaBalanceScale } from 'react-icons/fa';
 import * as XLSX from 'xlsx';
 import Navbar from '@/Components/Navbar/Navbar';
 import Sidebar from '@/Components/Sidebar/Sidebar';
+import axios from 'axios';
 
 const page = () => {
+
+  useEffect(() => {
+  const fetchShopReports = async () => {
+    try {
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/shop-report`);
+      
+
+      // Transform backend data to match the table's structure
+      const formattedData = res.data.admins.map(admin => ({
+        shopId: `SJ${admin.id}`,        // Generate shopId
+        shopName: admin.userName,       // Shop name
+        totalTickets: admin.totalTickets,
+        totalPoints: admin.totalPoints,
+        netPoints: admin.netAmount,
+        winningTickets: admin.winningAmount, // Use winningAmount as winningTickets for now
+        shopPoint: admin.shopAmount,
+        dPoint: 0,                       // Set default 0 if not in backend
+        sdPoint: 0,                      // Set default 0 if not in backend
+        adminPoint: admin.commission,
+        balance: admin.balance
+      }));
+
+      setShopReports(formattedData);
+    } catch (error) {
+      console.error("Error fetching shop reports:", error);
+    }
+  };
+
+  fetchShopReports();
+}, []);
+
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
 
   // Static data for the shop report table
-  const [shopReports, setShopReports] = useState([
-    {
-      shopId: 'SJ45970',
-      shopName: 'Shop 1',
-      totalTickets: 100,
-      totalPoints: 500,
-      netPoints: 450,
-      winningTickets: 30,
-      shopPoint: 200,
-      dPoint: 100,
-      sdPoint: 50,
-      adminPoint: 100,
-      balance: 5000
-    },
-    {
-      shopId: 'SJ45971',
-      shopName: 'Shop 2',
-      totalTickets: 150,
-      totalPoints: 600,
-      netPoints: 550,
-      winningTickets: 50,
-      shopPoint: 250,
-      dPoint: 120,
-      sdPoint: 70,
-      adminPoint: 150,
-      balance: 6000
-    },
-    {
-      shopId: 'SJ45972',
-      shopName: 'Shop 3',
-      totalTickets: 200,
-      totalPoints: 700,
-      netPoints: 650,
-      winningTickets: 70,
-      shopPoint: 300,
-      dPoint: 140,
-      sdPoint: 80,
-      adminPoint: 180,
-      balance: 7000
-    },
-    {
-      shopId: 'SJ45973',
-      shopName: 'Shop 4',
-      totalTickets: 80,
-      totalPoints: 400,
-      netPoints: 350,
-      winningTickets: 25,
-      shopPoint: 180,
-      dPoint: 90,
-      sdPoint: 40,
-      adminPoint: 90,
-      balance: 4500
-    },
-    {
-      shopId: 'SJ45974',
-      shopName: 'Shop 5',
-      totalTickets: 300,
-      totalPoints: 900,
-      netPoints: 850,
-      winningTickets: 100,
-      shopPoint: 400,
-      dPoint: 200,
-      sdPoint: 100,
-      adminPoint: 250,
-      balance: 8500
-    }
-  ]);
+  const [shopReports, setShopReports] = useState([]);
 
   // Filter shops based on search term
   const filteredShops = shopReports.filter(shop => 
@@ -247,7 +213,7 @@ const page = () => {
                 </div>
               </div>
 
-              <div>
+              {/* <div>
                 <label className="block text-sm font-medium text-slate-600 mb-2">From Date</label>
                 <div className="relative">
                   <FaCalendarAlt className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
@@ -271,9 +237,9 @@ const page = () => {
                     className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all duration-300"
                   />
                 </div>
-              </div>
+              </div> */}
 
-              <div className="flex items-end">
+              {/* <div className="flex items-end">
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
@@ -282,7 +248,7 @@ const page = () => {
                 >
                   Apply Filters
                 </motion.button>
-              </div>
+              </div> */}
             </div>
           </motion.div>
 
@@ -305,13 +271,13 @@ const page = () => {
                     <th className="px-6 py-4 text-left text-slate-600 font-semibold">Shop ID</th>
                     <th className="px-6 py-4 text-left text-slate-600 font-semibold">Shop Name</th>
                     <th className="px-6 py-4 text-left text-slate-600 font-semibold">Total Tickets</th>
-                    <th className="px-6 py-4 text-left text-slate-600 font-semibold">Total Points</th>
-                    <th className="px-6 py-4 text-left text-slate-600 font-semibold">Net Points</th>
+                    <th className="px-6 py-4 text-left text-slate-600 font-semibold">Total Amounts</th>
+                    <th className="px-6 py-4 text-left text-slate-600 font-semibold">Net Amounts</th>
                     <th className="px-6 py-4 text-left text-slate-600 font-semibold">Winning Tickets</th>
-                    <th className="px-6 py-4 text-left text-slate-600 font-semibold">Shop Points</th>
-                    <th className="px-6 py-4 text-left text-slate-600 font-semibold">D Points</th>
-                    <th className="px-6 py-4 text-left text-slate-600 font-semibold">SD Points</th>
-                    <th className="px-6 py-4 text-left text-slate-600 font-semibold">Admin Points</th>
+                    <th className="px-6 py-4 text-left text-slate-600 font-semibold">Shop Amounts</th>
+                    <th className="px-6 py-4 text-left text-slate-600 font-semibold">D Amounts</th>
+                    <th className="px-6 py-4 text-left text-slate-600 font-semibold">SD Amounts</th>
+                    <th className="px-6 py-4 text-left text-slate-600 font-semibold">Commission</th>
                     <th className="px-6 py-4 text-left text-slate-600 font-semibold">Balance</th>
                   </tr>
                 </thead>
