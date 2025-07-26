@@ -2,25 +2,71 @@
 
 import Navbar from '@/Components/Navbar/Navbar'
 import Sidebar from '@/Components/Sidebar/Sidebar'
-import React,{useEffect} from 'react'
+import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import axios from 'axios'
 
-const page = () => {
-
+const Page = () => {
   const router = useRouter();
 
+  // State for dashboard stats
+  const [stats, setStats] = useState({
+    totalAdmins: 0,
+    ticketsToday: 0,
+    totalPoints: 0,    // totalPointsToday
+    netPoints: 0,      // netAmount
+    winningPoints: 0,  // winningAmount
+    shopPoints: 0      // commissionAmount
+  });
+
   useEffect(() => {
+    // Auth check
     if (!localStorage.getItem("auth_token")) {
       router.push("/");
     }
-  }, []);
+
+    const fetchStats = async () => {
+      try {
+        // Fetch dashboard basic stats
+        const resDashboard = await axios.get(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/dashboard-details`
+        );
+
+        // Fetch today's points data
+        const resPoints = await axios.get(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/get-points`
+        );
+
+        setStats({
+          totalAdmins: resDashboard.data.totalAdmins || 0,
+          ticketsToday: resDashboard.data.ticketsToday || 0,
+          totalPoints: resPoints.data.totalPointsToday || 0,
+          netPoints: resPoints.data.netAmount || 0,
+          winningPoints: resPoints.data.winningAmount || 0,
+          shopPoints: resPoints.data.commissionAmount || 0
+        });
+      } catch (err) {
+        setStats({
+          totalAdmins: 0,
+          ticketsToday: 0,
+          totalPoints: 0,
+          netPoints: 0,
+          winningPoints: 0,
+          shopPoints: 0
+        });
+      }
+    };
+
+    fetchStats();
+  }, [router]);
+
   return (
     <div className='flex min-h-screen bg-gray-100'>
       <div>
-        <Sidebar/>
+        <Sidebar />
       </div>
       <div className='w-full'>
-        <Navbar/>
+        <Navbar />
 
         <div className='w-full h-fit p-6'>
           {/* Main Stats Section */}
@@ -36,7 +82,7 @@ const page = () => {
                 <div className='relative z-10 flex items-center justify-between'>
                   <div className='text-white'>
                     <h2 className='text-sm font-bold opacity-90 mb-1'>Total Shop</h2>
-                    <h1 className='text-3xl font-bold'>14</h1>
+                    <h1 className='text-3xl font-bold'>{stats.totalAdmins}</h1>
                   </div>
                   <div className='bg-white/20 p-3 rounded-xl backdrop-blur-sm'>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
@@ -53,7 +99,7 @@ const page = () => {
                 <div className='relative z-10 flex items-center justify-between'>
                   <div className='text-white'>
                     <h2 className='text-sm font-bold opacity-90 mb-1'>Total Game Tickets</h2>
-                    <h1 className='text-3xl font-bold'>14</h1>
+                    <h1 className='text-3xl font-bold'>{stats.ticketsToday}</h1>
                   </div>
                   <div className='bg-white/20 p-3 rounded-xl backdrop-blur-sm'>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
@@ -65,13 +111,13 @@ const page = () => {
                 <div className='absolute -bottom-2 -right-2 w-16 h-16 bg-gradient-to-br from-white/10 to-transparent rounded-full'></div>
               </div>
 
-              {/* Cancel Tickets */}
+              {/* Cancel Tickets (reset to 0) */}
               <div className='group relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 overflow-hidden'>
                 <div className='absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 opacity-50'></div>
                 <div className='relative z-10 flex items-center justify-between'>
                   <div className='text-white'>
                     <h2 className='text-sm font-bold opacity-90 mb-1'>Cancel Tickets</h2>
-                    <h1 className='text-3xl font-bold'>14</h1>
+                    <h1 className='text-3xl font-bold'>0</h1>
                   </div>
                   <div className='bg-white/20 p-3 rounded-xl backdrop-blur-sm'>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
@@ -83,7 +129,7 @@ const page = () => {
                 <div className='absolute -bottom-2 -right-2 w-16 h-16 bg-gradient-to-br from-white/10 to-transparent rounded-full'></div>
               </div>
 
-              {/* Support Enquiry */}
+              {/* Support Enquiry (reset to 0) */}
               <div className='group relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 overflow-hidden'>
                 <div className='absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 opacity-50'></div>
                 <div className='relative z-10 flex items-center justify-between'>
@@ -120,7 +166,7 @@ const page = () => {
                 <div className='flex items-center justify-between text-white'>
                   <div>
                     <h2 className='text-lg font-bold opacity-90 mb-1'>Total Points</h2>
-                    <h1 className='text-2xl font-bold'>0</h1>
+                    <h1 className='text-2xl font-bold'>{stats.totalPoints}</h1>
                   </div>
                   <div className='bg-white/20 p-2 rounded-lg'>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
@@ -137,7 +183,7 @@ const page = () => {
                 <div className='flex items-center justify-between text-white'>
                   <div>
                     <h2 className='text-lg font-bold opacity-90 mb-1'>Net Points</h2>
-                    <h1 className='text-2xl font-bold'>0</h1>
+                    <h1 className='text-2xl font-bold'>{stats.netPoints}</h1>
                   </div>
                   <div className='bg-white/20 p-2 rounded-lg'>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
@@ -154,7 +200,7 @@ const page = () => {
                 <div className='flex items-center justify-between text-white'>
                   <div>
                     <h2 className='text-lg font-bold opacity-90 mb-1'>Winning Points</h2>
-                    <h1 className='text-2xl font-bold'>0</h1>
+                    <h1 className='text-2xl font-bold'>{stats.winningPoints}</h1>
                   </div>
                   <div className='bg-white/20 p-2 rounded-lg'>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
@@ -169,13 +215,13 @@ const page = () => {
                 </div>
               </div>
 
-              {/* Shop Points */}
+              {/* Shop Points (Commission Amount) */}
               <div className='group relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105'>
                 <div className='absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 opacity-50'></div>
                 <div className='flex items-center justify-between text-white'>
                   <div>
                     <h2 className='text-lg font-bold opacity-90 mb-1'>Shop Points</h2>
-                    <h1 className='text-2xl font-bold'>0</h1>
+                    <h1 className='text-2xl font-bold'>{stats.shopPoints}</h1>
                   </div>
                   <div className='bg-white/20 p-2 rounded-lg'>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
@@ -196,4 +242,4 @@ const page = () => {
   )
 }
 
-export default page
+export default Page
