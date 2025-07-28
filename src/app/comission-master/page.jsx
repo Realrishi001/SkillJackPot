@@ -13,14 +13,7 @@ const CommissionMaster = () => {
   const [setCommissionModalOpenState, setSetCommissionModalOpen] = useState(false);
   const [addBalanceModalOpenState, setAddBalanceModalOpen] = useState(false);
 
-  // Static data for packages and balances
-  const packageList = [
-    { packageName: 'Commission 10%', commissionPercent: 10 },
-    { packageName: 'Commission 9%', commissionPercent: 9 },
-    { packageName: 'Commission 8%', commissionPercent: 8 },
-    { packageName: 'Commission 7%', commissionPercent: 7 }
-  ];
-
+  // Static data for packages (hardcoded)
   const [commissionPackages, setCommissionPackages] = useState([
     { packageName: 'Commission 10%', commissionRupees: 0, commissionPercent: 10 },
     { packageName: 'Commission 9%', commissionRupees: 0, commissionPercent: 9 },
@@ -28,73 +21,57 @@ const CommissionMaster = () => {
     { packageName: 'Commission 7%', commissionRupees: 0, commissionPercent: 7 }
   ]);
   const [balances, setBalances] = useState([]);
-  const [editBalances, setEditBalances] = useState({});
 
-
-  // State for form inputs
+  // Form input states
   const [newPackage, setNewPackage] = useState({ packageName: '', commissionPercent: '' });
   const [newSetCommission, setNewSetCommission] = useState({ shopName: '', commission: '', package: '' });
   const [newBalance, setNewBalance] = useState({ shopName: '', amount: '' });
 
-  // --- DYNAMIC ADMIN USERNAMES AND COMMISSIONS ---
+  // Admin usernames & commissions
   const [adminUsernames, setAdminUsernames] = useState([]);
   const [adminCommissions, setAdminCommissions] = useState([]);
 
-  // Fetch usernames & commissions from backend
-  const fetchAdminData = async () => {
+  // ----------- FETCH ALL MASTER DATA ON MOUNT & AFTER ANY CHANGE -----------
+  const fetchAllMasterData = async () => {
     try {
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/get-commission-details`);
-      setAdminUsernames(res.data.admins.map(a => a.userName));
-      setAdminCommissions(res.data.admins); // [{ userName, commission }]
-    } catch {
+      // Admin commission details
+      const adminRes = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/get-commission-details`);
+      setAdminUsernames(adminRes.data.admins.map(a => a.userName));
+      setAdminCommissions(adminRes.data.admins);
+
+      // Shop balances
+      const balRes = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/get-balance`);
+      setBalances(balRes.data.admins);
+
+      // If your commissionPackages are from API, fetch here
+      // const packageRes = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/commission-packages`);
+      // setCommissionPackages(packageRes.data);
+
+    } catch (err) {
       setAdminUsernames([]);
       setAdminCommissions([]);
+      setBalances([]);
+      // setCommissionPackages([]); // If fetching dynamically
+      console.error(err);
     }
   };
 
-  // Fetch balances from backend
-const fetchBalances = async () => {
-  try {
-    const res = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/get-balance`);
-    setBalances(res.data.admins); // original array
-    // initialize local edit state
-    const initial = {};
-    res.data.admins.forEach(b => {
-      initial[b.userName] = b.balance; // or initial[b.id] = b.balance
-    });
-    setEditBalances(initial);
-  } catch (error) {
-    setBalances([]);
-    setEditBalances({});
-  }
-};
-
-  // Fetch data on initial mount
   useEffect(() => {
-    fetchBalances();
-    fetchAdminData();
+    fetchAllMasterData();
   }, []);
 
-  // Modal toggles
+  // ----------------------- MODAL TOGGLES -----------------------
   const handleCommissionModalToggle = () => setCommissionModalOpen(!commissionModalOpen);
   const handleSetCommissionModalToggle = () => setSetCommissionModalOpen(!setCommissionModalOpenState);
   const handleAddBalanceModalToggle = () => setAddBalanceModalOpen(!addBalanceModalOpenState);
 
-  // Refresh admin data when set commission modal opens (optional, can be removed if not needed)
-  useEffect(() => {
-    if (setCommissionModalOpenState) {
-      fetchAdminData();
-    }
-    // eslint-disable-next-line
-  }, [setCommissionModalOpenState]);
-
-  // Handle input changes
+  // ----------------------- INPUT HANDLERS -----------------------
   const handleInputChange = (e, stateSetter) => {
     const { name, value } = e.target;
     stateSetter((prevState) => ({ ...prevState, [name]: value }));
   };
 
-  // Handle form submissions
+  // ----------------------- FORM SUBMISSIONS -----------------------
   const handleAddPackage = () => {
     if (newPackage.packageName && newPackage.commissionPercent) {
       setCommissionPackages([
@@ -113,11 +90,11 @@ const fetchBalances = async () => {
   const handleAddSetCommission = async () => {
     if (newSetCommission.shopName && newSetCommission.commission !== "") {
       try {
-        const response = await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}/update-commission`, {
+        await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}/update-commission`, {
           userName: newSetCommission.shopName,
           commission: Number(newSetCommission.commission)
         });
-        await fetchAdminData(); // Refresh the UI with updated commission table
+        await fetchAllMasterData(); // Refresh everything!
         setNewSetCommission({ shopName: '', commission: '', package: '' });
         setSetCommissionModalOpen(false);
       } catch (err) {
@@ -136,11 +113,7 @@ const fetchBalances = async () => {
             amount: Number(newBalance.amount),
           }
         );
-
-        // Refresh balances after successful addition
-        await fetchBalances();
-
-        // Reset form and close modal
+        await fetchAllMasterData();
         setNewBalance({ shopName: '', amount: '' });
         setAddBalanceModalOpen(false);
       } catch (err) {
@@ -149,6 +122,7 @@ const fetchBalances = async () => {
     }
   };
 
+  // ----------------------- DELETE HANDLERS -----------------------
   const handleDeletePackage = (index) => {
     setCommissionPackages(commissionPackages.filter((_, i) => i !== index));
   };
@@ -156,16 +130,16 @@ const fetchBalances = async () => {
   const handleDeleteSetCommission = async (index) => {
     const userName = adminCommissions[index].userName;
     await axios.delete(`${process.env.NEXT_PUBLIC_API_BASE_URL}/delete-admin`, { data: { userName } });
-    await fetchAdminData();
+    await fetchAllMasterData();
   };
 
   const handleDeleteBalance = (index) => {
     setBalances(balances.filter((_, i) => i !== index));
   };
 
+  // ----------------------- UI COMPONENTS -----------------------
   const Modal = ({ isOpen, onClose, title, children }) => {
     if (!isOpen) return null;
-
     return (
       <div className="fixed inset-0 bg-transparent bg-opacity-60 flex items-center justify-center z-50 backdrop-blur-[5px]">
         <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-8 rounded-2xl shadow-2xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto border border-purple-500/20">
@@ -257,6 +231,7 @@ const fetchBalances = async () => {
     </div>
   );
 
+  // ----------------------- RENDER -----------------------
   return (
     <div className='flex'>
       <div className='bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900'>
@@ -302,12 +277,12 @@ const fetchBalances = async () => {
                 </Button>
               </div>
               <DataTable
-                headers={['Sr. No.', 'Shop Name', 'Balance (₹)', 'Action']}
-                data={balances.map(b => ({
-                  shopName: b.userName,
-                  amount: b.balance
+                headers={['Sr. No.', 'Package Name', 'Commission (%)', 'Action']}
+                data={commissionPackages.map(pkg => ({
+                  packageName: pkg.packageName,
+                  commissionPercent: pkg.commissionPercent
                 }))}
-                onDelete={handleDeleteBalance}
+                onDelete={handleDeletePackage}
               />
             </Modal>
 
@@ -329,7 +304,6 @@ const fetchBalances = async () => {
                     <option key={index} value={username}>{username}</option>
                   ))}
                 </SelectField>
-
                 <InputField
                   type="number"
                   name="commission"
@@ -388,7 +362,10 @@ const fetchBalances = async () => {
               </div>
               <DataTable
                 headers={['Sr. No.', 'Shop Name', 'Amount', 'Action']}
-                data={balances}
+                data={balances.map(b => ({
+                  shopName: b.userName,
+                  amount: b.balance
+                }))}
                 onDelete={handleDeleteBalance}
               />
             </Modal>
