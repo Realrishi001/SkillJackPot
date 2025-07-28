@@ -10,14 +10,15 @@ const Page = () => {
   const router = useRouter();
 
   // State for dashboard stats
-  const [stats, setStats] = useState({
-    totalAdmins: 0,
-    ticketsToday: 0,
-    totalPoints: 0,    // totalPointsToday
-    netPoints: 0,      // netAmount
-    winningPoints: 0,  // winningAmount
-    shopPoints: 0      // commissionAmount
-  });
+const [stats, setStats] = useState({
+  totalAdmins: 0,
+  ticketsToday: 0,
+  totalPoints: 0,
+  netPoints: 0,
+  winningPoints: 0,
+  shopPoints: 0,
+  adminAmount: 0  
+});
 
   useEffect(() => {
     // Auth check
@@ -39,14 +40,16 @@ const Page = () => {
           `${process.env.NEXT_PUBLIC_API_BASE_URL}/get-points`
         );
 
-        setStats({
+       setStats({
           totalAdmins: resDashboard.data.totalAdmins || 0,
-          ticketsToday: resDashboard.data.totalTickets || 0,  // FIXED
+          ticketsToday: resDashboard.data.totalTickets || 0,
           totalPoints: resPoints.data.totalPointsToday || 0,
           netPoints: resPoints.data.netAmount || 0,
           winningPoints: resPoints.data.winningAmount || 0,
-          shopPoints: resPoints.data.commissionAmount || 0
+          shopPoints: resPoints.data.commissionAmount || 0,
+          adminAmount: resPoints.data.adminAmount || 0    // <-- add this line
         });
+
 
         console.log(resDashboard.data);
         console.log(resPoints.data);
@@ -242,6 +245,24 @@ const Page = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Admin Amount */}
+              <div className='group relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105'>
+                <div className='absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 opacity-50'></div>
+                <div className='flex items-center justify-between text-white'>
+                  <div>
+                    <h2 className='text-lg font-bold opacity-90 mb-1'>Admin Amount</h2>
+                    <h1 className='text-2xl font-bold'>{stats.adminAmount}</h1>
+                  </div>
+                  <div className='bg-white/20 p-2 rounded-lg'>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10"/>
+                      <path d="M8 12h8M12 8v8"/>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
 
             </div>
           </div>

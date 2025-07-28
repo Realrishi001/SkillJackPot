@@ -28,6 +28,8 @@ const CommissionMaster = () => {
     { packageName: 'Commission 7%', commissionRupees: 0, commissionPercent: 7 }
   ]);
   const [balances, setBalances] = useState([]);
+  const [editBalances, setEditBalances] = useState({});
+
 
   // State for form inputs
   const [newPackage, setNewPackage] = useState({ packageName: '', commissionPercent: '' });
@@ -38,14 +40,7 @@ const CommissionMaster = () => {
   const [adminUsernames, setAdminUsernames] = useState([]);
   const [adminCommissions, setAdminCommissions] = useState([]);
 
-  // Fetch usernames & commissions from backend when Set Commission modal opens
-  useEffect(() => {
-    if (setCommissionModalOpenState) {
-      fetchAdminData();
-    }
-    // eslint-disable-next-line
-  }, [setCommissionModalOpenState]);
-
+  // Fetch usernames & commissions from backend
   const fetchAdminData = async () => {
     try {
       const res = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/get-commission-details`);
@@ -57,28 +52,41 @@ const CommissionMaster = () => {
     }
   };
 
-  const fetchBalances = async () => {
+  // Fetch balances from backend
+const fetchBalances = async () => {
   try {
-    const res = await axios.get(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL}/get-balance`
-    );
-    setBalances(res.data.admins); // [{ userName, balance }]
+    const res = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/get-balance`);
+    setBalances(res.data.admins); // original array
+    // initialize local edit state
+    const initial = {};
+    res.data.admins.forEach(b => {
+      initial[b.userName] = b.balance; // or initial[b.id] = b.balance
+    });
+    setEditBalances(initial);
   } catch (error) {
-    console.error(error);
     setBalances([]);
+    setEditBalances({});
   }
 };
 
-
-useEffect(() => {
-  fetchBalances();
-}, []);
-
+  // Fetch data on initial mount
+  useEffect(() => {
+    fetchBalances();
+    fetchAdminData();
+  }, []);
 
   // Modal toggles
   const handleCommissionModalToggle = () => setCommissionModalOpen(!commissionModalOpen);
   const handleSetCommissionModalToggle = () => setSetCommissionModalOpen(!setCommissionModalOpenState);
   const handleAddBalanceModalToggle = () => setAddBalanceModalOpen(!addBalanceModalOpenState);
+
+  // Refresh admin data when set commission modal opens (optional, can be removed if not needed)
+  useEffect(() => {
+    if (setCommissionModalOpenState) {
+      fetchAdminData();
+    }
+    // eslint-disable-next-line
+  }, [setCommissionModalOpenState]);
 
   // Handle input changes
   const handleInputChange = (e, stateSetter) => {
@@ -102,48 +110,44 @@ useEffect(() => {
     }
   };
 
-const handleAddSetCommission = async () => {
-  if (newSetCommission.shopName && newSetCommission.commission !== "") {
-    try {
-      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}/update-commission`, {
-        userName: newSetCommission.shopName,
-        commission: Number(newSetCommission.commission)
-      });
-      // Optionally, show a toast: toast.success(response.data.message)
-      await fetchAdminData(); // Refresh the UI with updated commission table
-      setNewSetCommission({ shopName: '', commission: '', package: '' });
-      setSetCommissionModalOpen(false);
-    } catch (err) {
-      // Optionally, show a toast: toast.error(err.response?.data?.message || "Error updating commission")
-      console.error(err);
+  const handleAddSetCommission = async () => {
+    if (newSetCommission.shopName && newSetCommission.commission !== "") {
+      try {
+        const response = await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}/update-commission`, {
+          userName: newSetCommission.shopName,
+          commission: Number(newSetCommission.commission)
+        });
+        await fetchAdminData(); // Refresh the UI with updated commission table
+        setNewSetCommission({ shopName: '', commission: '', package: '' });
+        setSetCommissionModalOpen(false);
+      } catch (err) {
+        console.error(err);
+      }
     }
-  }
-};
+  };
 
+  const handleAddBalance = async () => {
+    if (newBalance.shopName && newBalance.amount) {
+      try {
+        await axios.post(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/update-balance`,
+          {
+            userName: newBalance.shopName,
+            amount: Number(newBalance.amount),
+          }
+        );
 
-const handleAddBalance = async () => {
-  if (newBalance.shopName && newBalance.amount) {
-    try {
-      await axios.post(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/update-balance`,
-        {
-          userName: newBalance.shopName,
-          amount: Number(newBalance.amount),
-        }
-      );
+        // Refresh balances after successful addition
+        await fetchBalances();
 
-      // Refresh balances after successful addition
-      await fetchBalances();
-
-      // Reset form and close modal
-      setNewBalance({ shopName: '', amount: '' });
-      setAddBalanceModalOpen(false);
-    } catch (err) {
-      console.error(err);
+        // Reset form and close modal
+        setNewBalance({ shopName: '', amount: '' });
+        setAddBalanceModalOpen(false);
+      } catch (err) {
+        console.error(err);
+      }
     }
-  }
-};
-
+  };
 
   const handleDeletePackage = (index) => {
     setCommissionPackages(commissionPackages.filter((_, i) => i !== index));
@@ -298,14 +302,13 @@ const handleAddBalance = async () => {
                 </Button>
               </div>
               <DataTable
-  headers={['Sr. No.', 'Shop Name', 'Balance (₹)', 'Action']}
-  data={balances.map(b => ({
-    shopName: b.userName,
-    amount: b.balance
-  }))}
-  onDelete={handleDeleteBalance}
-/>
-
+                headers={['Sr. No.', 'Shop Name', 'Balance (₹)', 'Action']}
+                data={balances.map(b => ({
+                  shopName: b.userName,
+                  amount: b.balance
+                }))}
+                onDelete={handleDeleteBalance}
+              />
             </Modal>
 
             {/* Modal for Set Commission */}
