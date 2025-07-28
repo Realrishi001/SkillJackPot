@@ -248,43 +248,7 @@ const CommissionMaster = () => {
               <p className="text-slate-400 text-lg">Manage your commission packages, shop commissions, and balances</p>
             </div>
 
-            {/* Modal for Commission Package */}
-            <Modal
-              isOpen={commissionModalOpen}
-              onClose={handleCommissionModalToggle}
-              title="Commission Packages"
-            >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                <InputField
-                  name="packageName"
-                  value={newPackage.packageName}
-                  onChange={(e) => handleInputChange(e, setNewPackage)}
-                  placeholder="Enter Package Name"
-                  className="w-full"
-                />
-                <InputField
-                  type="number"
-                  name="commissionPercent"
-                  value={newPackage.commissionPercent}
-                  onChange={(e) => handleInputChange(e, setNewPackage)}
-                  placeholder="Enter Commission (%)"
-                  className="w-full"
-                />
-              </div>
-              <div className="flex justify-end mb-6">
-                <Button onClick={handleAddPackage} className="mr-4">
-                  Add Package
-                </Button>
-              </div>
-              <DataTable
-                headers={['Sr. No.', 'Package Name', 'Commission (%)', 'Action']}
-                data={commissionPackages.map(pkg => ({
-                  packageName: pkg.packageName,
-                  commissionPercent: pkg.commissionPercent
-                }))}
-                onDelete={handleDeletePackage}
-              />
-            </Modal>
+            
 
             {/* Modal for Set Commission */}
             <Modal
@@ -372,24 +336,7 @@ const CommissionMaster = () => {
 
             {/* Main Dashboard Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              <div
-                className="group relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-8 rounded-2xl shadow-2xl hover:shadow-purple-500/25 transition-all duration-300 transform hover:scale-105 overflow-hidden cursor-pointer border border-purple-500/20"
-                onClick={handleCommissionModalToggle}
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 opacity-50"></div>
-                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-full -translate-y-16 translate-x-16"></div>
-                <div className="relative z-10 flex items-center justify-between">
-                  <div className="text-white">
-                    <h2 className="text-sm font-bold opacity-90 mb-2 text-purple-300">Commission Package</h2>
-                    <h1 className="text-4xl font-bold mb-2">{commissionPackages.length}</h1>
-                    <p className="text-slate-400">packages</p>
-                  </div>
-                  <div className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 p-4 rounded-xl backdrop-blur-sm border border-purple-500/30">
-                    <span className="text-4xl">📦</span>
-                  </div>
-                </div>
-                <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-pink-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
-              </div>
+             
 
               <div
                 className="group relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-8 rounded-2xl shadow-2xl hover:shadow-purple-500/25 transition-all duration-300 transform hover:scale-105 overflow-hidden cursor-pointer border border-purple-500/20"
