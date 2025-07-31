@@ -1,107 +1,231 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Navbar from '@/Components/Navbar/Navbar';
 import Sidebar from '@/Components/Sidebar/Sidebar';
-import { FaRegCheckCircle, FaRegTimesCircle, FaPlus, FaEye, FaList, FaPercentage, FaCog, FaRandom, FaSave } from 'react-icons/fa';
+import { FaRegCheckCircle, FaRegTimesCircle, FaSave, FaClock } from 'react-icons/fa';
 import AddWinningDraw from '@/Components/AddWinningDraw/AddWinningDraw';
 import ViewWinningTicketsModal from '@/Components/ViewWinningTicketsModal/ViewWinningTicketsModal';
 import ViewAllTicket from '@/Components/ViewAllTicket/ViewAllTicket';
 import UpdateWinningPercentageModal from '@/Components/SetWinningPercentage/SetWinningPercentage';
+import axios from 'axios';
+
+// --- DRAW TIMES ---
+const DRAW_TIMES = [
+  "09:00 AM", "09:15 AM", "09:30 AM", "09:45 AM",
+  "10:00 AM", "10:15 AM", "10:30 AM", "10:45 AM",
+  "11:00 AM", "11:15 AM", "11:30 AM", "11:45 AM",
+  "12:00 PM", "12:15 PM", "12:30 PM", "12:45 PM",
+  "01:00 PM", "01:15 PM", "01:30 PM", "01:45 PM",
+  "02:00 PM", "02:15 PM", "02:30 PM", "02:45 PM",
+  "03:00 PM", "03:15 PM", "03:30 PM", "03:45 PM",
+  "04:00 PM", "04:15 PM", "04:30 PM", "04:45 PM",
+  "05:00 PM", "05:15 PM", "05:30 PM", "05:45 PM",
+  "06:00 PM", "06:15 PM", "06:30 PM", "06:45 PM",
+  "07:00 PM", "07:15 PM", "07:30 PM", "07:45 PM",
+  "08:00 PM", "08:15 PM", "08:30 PM", "08:45 PM",
+  "09:00 PM", "09:15 PM", "09:30 PM", "09:45 PM",
+  "10:00 PM", "10:15 PM", "10:30 PM", "10:45 PM",
+  "11:00 PM"
+];
+
+// --- Slot Selection Modal ---
+function isTimePassed(drawTime) {
+  const now = new Date();
+  const [time, period] = drawTime.split(" ");
+  let [hours, minutes] = time.split(":").map(Number);
+  if (period === "PM" && hours !== 12) hours += 12;
+  if (period === "AM" && hours === 12) hours = 0;
+  const drawDate = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    hours,
+    minutes,
+    0
+  );
+  return drawDate < now;
+}
+
+function AdvanceDrawModal({ open, onClose, selectedTimes, setSelectedTimes, onConfirm }) {
+  if (!open) return null;
+  const toggleTime = (time) => {
+    setSelectedTimes((prev) =>
+      prev.includes(time) ? prev.filter((t) => t !== time) : [...prev, time]
+    );
+  };
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+      <div className="bg-white rounded-2xl p-6 max-w-2xl w-full shadow-xl">
+        <h2 className="text-2xl font-bold text-purple-800 mb-4">
+          Select Advance Draw Times
+        </h2>
+        <div className="flex justify-between flex-wrap gap-4 mb-6 max-h-64 overflow-auto">
+          {DRAW_TIMES.map((time) => {
+            const disabled = isTimePassed(time);
+            return (
+              <label
+                key={time}
+                className={`flex items-center gap-2 cursor-pointer ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedTimes.includes(time)}
+                  onChange={() => toggleTime(time)}
+                  className="w-5 h-5 accent-purple-600"
+                  disabled={disabled}
+                />
+                <span className="font-medium">{time}</span>
+              </label>
+            );
+          })}
+        </div>
+        <div className="flex gap-4 justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-800"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => {
+              onConfirm(selectedTimes);
+              onClose();
+            }}
+            className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold"
+          >
+            Confirm
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const page = () => {
-  const [isModalOpen, setIsModalOpen] = useState(false); 
+  // Modal UI states
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isViewAllModalOpen, setIsViewAllModalOpen] = useState(false);
   const [isManual, setIsManual] = useState(true);
   const [isWinningPercentageModalOpen, setIsWinningPercentageModalOpen] = useState(false);
   const [winningPercentage, setWinningPercentage] = useState(50);
+  const [slotsModalOpen, setSlotsModalOpen] = useState(false);
+  const [selectedSlots, setSelectedSlots] = useState([]);
+  const [resultMessage, setResultMessage] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  // Static base numbers
+  // Series base numbers
   const column1Base = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
   const column2Base = [30, 31, 32, 33, 34, 35, 36, 37, 38, 39];
   const column3Base = [50, 51, 52, 53, 54, 55, 56, 57, 58, 59];
 
-  // State for user inputs (only 2 digits allowed)
+  // User inputs (only 2 digits allowed)
   const [column1Numbers, setColumn1Numbers] = useState(Array(10).fill(''));
   const [column2Numbers, setColumn2Numbers] = useState(Array(10).fill(''));
   const [column3Numbers, setColumn3Numbers] = useState(Array(10).fill(''));
 
-  // Outputs (right side)
-  const [column1RowOutputs, setColumn1RowOutputs] = useState(
-    column1Base.map(base => [`${base}00`, '--'])
-  );
-  const [column2RowOutputs, setColumn2RowOutputs] = useState(
-    column2Base.map(base => [`${base}00`, '--'])
-  );
-  const [column3RowOutputs, setColumn3RowOutputs] = useState(
-    column3Base.map(base => [`${base}00`, '--'])
-  );
+  // Outputs from backend API
+  const [apiOutputs, setApiOutputs] = useState({
+    series10: Array(10).fill(''),
+    series30: Array(10).fill(''),
+    series50: Array(10).fill(''),
+  });
 
-  const toggleMode = () => {
-    setIsManual(!isManual);
-  };
+  useEffect(() => {
+    const fetchApiOutputs = async () => {
+      try {
+        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/winner-master-manual`);
+        setApiOutputs({
+          series10: res.data.series10 || Array(10).fill(''),
+          series30: res.data.series30 || Array(10).fill(''),
+          series50: res.data.series50 || Array(10).fill(''),
+        });
+      } catch (err) {
+        console.error('Failed to fetch series numbers:', err);
+      }
+    };
+    fetchApiOutputs();
+  }, []);
 
-  // Input change handlers with 2-digit limit
+  // Manual/Auto mode toggle
+  const toggleMode = () => setIsManual(m => !m);
+
+  // Input change handlers
   const handleColumn1Change = (index, value) => {
-    const sanitized = value.slice(0, 2); // Only 2 digits
-    const newNumbers = [...column1Numbers];
-    newNumbers[index] = sanitized;
-    setColumn1Numbers(newNumbers);
-
-    const newOutputs = [...column1RowOutputs];
-    newOutputs[index] = [`${column1Base[index]}${sanitized || '00'}`, newOutputs[index][1]];
-    setColumn1RowOutputs(newOutputs);
+    const sanitized = value.replace(/\D/g, '').slice(0, 2);
+    const arr = [...column1Numbers];
+    arr[index] = sanitized;
+    setColumn1Numbers(arr);
   };
-
   const handleColumn2Change = (index, value) => {
-    const sanitized = value.slice(0, 2);
-    const newNumbers = [...column2Numbers];
-    newNumbers[index] = sanitized;
-    setColumn2Numbers(newNumbers);
-
-    const newOutputs = [...column2RowOutputs];
-    newOutputs[index] = [`${column2Base[index]}${sanitized || '00'}`, newOutputs[index][1]];
-    setColumn2RowOutputs(newOutputs);
+    const sanitized = value.replace(/\D/g, '').slice(0, 2);
+    const arr = [...column2Numbers];
+    arr[index] = sanitized;
+    setColumn2Numbers(arr);
   };
-
   const handleColumn3Change = (index, value) => {
-    const sanitized = value.slice(0, 2);
-    const newNumbers = [...column3Numbers];
-    newNumbers[index] = sanitized;
-    setColumn3Numbers(newNumbers);
-
-    const newOutputs = [...column3RowOutputs];
-    newOutputs[index] = [`${column3Base[index]}${sanitized || '00'}`, newOutputs[index][1]];
-    setColumn3RowOutputs(newOutputs);
+    const sanitized = value.replace(/\D/g, '').slice(0, 2);
+    const arr = [...column3Numbers];
+    arr[index] = sanitized;
+    setColumn3Numbers(arr);
   };
 
-  // Generate random outputs
-  const generateRandomOutputs = () => {
-    setColumn1RowOutputs(
-      column1Base.map((base) => {
-        const rand1 = Math.floor(Math.random() * 100).toString().padStart(2, '0');
-        const rand2 = Math.floor(Math.random() * 100).toString().padStart(2, '0');
-        return [`${base}${rand1}`, `${base}${rand2}`];
-      })
-    );
-    setColumn2RowOutputs(
-      column2Base.map((base) => {
-        const rand1 = Math.floor(Math.random() * 100).toString().padStart(2, '0');
-        const rand2 = Math.floor(Math.random() * 100).toString().padStart(2, '0');
-        return [`${base}${rand1}`, `${base}${rand2}`];
-      })
-    );
-    setColumn3RowOutputs(
-      column3Base.map((base) => {
-        const rand1 = Math.floor(Math.random() * 100).toString().padStart(2, '0');
-        const rand2 = Math.floor(Math.random() * 100).toString().padStart(2, '0');
-        return [`${base}${rand1}`, `${base}${rand2}`];
-      })
-    );
+  // Generate the green-box number
+  const getFinalValue = (apiVal, userInput, base) => {
+    let backendValue = apiVal || `${base}00`;
+    backendValue = String(backendValue).replace(/\D/g, '');
+    if (backendValue.length < 4) backendValue = backendValue.padEnd(4, '0');
+    const prefix = backendValue.slice(0, backendValue.length - 2);
+    const defaultSuffix = backendValue.slice(-2);
+    return prefix + (userInput !== "" ? userInput.padStart(2, "0") : defaultSuffix);
   };
 
-  // Modal open/close
+  // Prepare winning numbers array for API
+  const getAllWinningNumbers = () => {
+    const numbers = [];
+    for (let i = 0; i < 10; i++) {
+      numbers.push({ number: getFinalValue(apiOutputs.series10[i], column1Numbers[i], column1Base[i]) });
+      numbers.push({ number: getFinalValue(apiOutputs.series30[i], column2Numbers[i], column2Base[i]) });
+      numbers.push({ number: getFinalValue(apiOutputs.series50[i], column3Numbers[i], column3Base[i]) });
+    }
+    return numbers;
+  };
+
+  // Dummy point calculation (update as per your logic)
+  const calculateTotalPoints = () => 30;
+
+  // Save logic for all selected slots
+  const handleSaveAllData = async () => {
+    setResultMessage('');
+    if (!selectedSlots.length) {
+      setResultMessage("Please select at least one draw slot.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const numbers = getAllWinningNumbers();
+      const totalPoints = calculateTotalPoints();
+      const drawDate = new Date().toISOString().split('T')[0];
+      let results = [];
+      for (const DrawTime of selectedSlots) {
+        const payload = {
+          winningNumbers: numbers,
+          totalPoints,
+          DrawTime,
+          drawDate,
+        };
+        const res = await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}/winner-master-manual-save`, payload);
+        results.push({ DrawTime, ...res.data });
+      }
+      setResultMessage("Winning numbers saved for all selected slots!");
+    } catch (error) {
+      setResultMessage("Error saving winning numbers: " + (error?.response?.data?.message || error.message));
+    }
+    setLoading(false);
+  };
+
+  // Modal handlers
   const openModal = () => setIsModalOpen(true);
   const closeModal = () => setIsModalOpen(false);
   const openViewModal = () => setIsViewModalOpen(true);
@@ -110,6 +234,7 @@ const page = () => {
   const closeViewAllModal = () => setIsViewAllModalOpen(false);
   const openWinningPercentageModal = () => setIsWinningPercentageModalOpen(true);
   const closeWinningPercentageModal = () => setIsWinningPercentageModalOpen(false);
+  const handleSlotConfirm = (slots) => setSelectedSlots(slots);
 
   return (
     <div className="flex min-h-screen">
@@ -120,7 +245,7 @@ const page = () => {
         <Navbar />
 
         <div className="p-8">
-          {/* Header */}
+          {/* Header + Slots Section */}
           <div className="bg-gradient-to-r from-slate-800 to-slate-700 p-6 rounded-2xl shadow-xl mb-8 border border-slate-600/30">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
@@ -129,6 +254,7 @@ const page = () => {
                 </h1>
                 <p className="text-slate-400 text-lg">Manage lottery draws and winning tickets</p>
               </div>
+              {/* Slots Section Button */}
               <div className="flex items-center gap-4">
                 <span className="text-white font-medium">Mode:</span>
                 <button
@@ -141,19 +267,39 @@ const page = () => {
                 >
                   {isManual ? <><FaRegCheckCircle /> Manual</> : <><FaRegTimesCircle /> Auto</>}
                 </button>
+                <button
+                  onClick={() => setSlotsModalOpen(true)}
+                  className="ml-3 px-5 py-3 rounded-xl flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-bold hover:scale-105 transition-all"
+                >
+                  <FaClock className="mr-1" /> Select Slot
+                </button>
               </div>
             </div>
+            {/* Selected Slots Preview */}
+            {selectedSlots.length > 0 && (
+              <div className="mt-4">
+                <span className="font-bold text-white">Selected Slots:</span>
+                <span className="text-pink-300 ml-3">
+                  {selectedSlots.join(", ")}
+                </span>
+              </div>
+            )}
+            {resultMessage && (
+              <div className={`mt-4 px-4 py-3 rounded-lg ${resultMessage.includes('Error') ? 'bg-red-200 text-red-700' : 'bg-green-200 text-green-800'}`}>
+                {resultMessage}
+              </div>
+            )}
           </div>
 
           {/* Columns */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {/* Column 1 */}
+            {/* Column 1: Range 10-19 */}
             <div className="bg-gradient-to-r from-slate-800 to-slate-700 p-3 rounded-2xl shadow-xl border border-slate-600/30">
               <h2 className="text-lg font-semibold text-white mb-3">Range 10-19</h2>
-              {[...Array(10)].map((_, index) => (
+              {column1Base.map((base, index) => (
                 <div key={index} className="flex items-center gap-2 mb-2">
                   <div className="w-16 bg-purple-600/30 border border-purple-500/50 rounded-lg text-center py-3 text-white font-bold">
-                    {column1Base[index]}
+                    {base}
                   </div>
                   <input
                     type="number"
@@ -164,19 +310,19 @@ const page = () => {
                     max="99"
                   />
                   <div className="w-20 bg-green-600/20 border border-green-500/30 rounded-lg text-center py-3 text-green-400 font-bold">
-                    {column1RowOutputs[index][0]}
+                    {getFinalValue(apiOutputs.series10[index], column1Numbers[index], base)}
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* Column 2 */}
+            {/* Column 2: Range 30-39 */}
             <div className="bg-gradient-to-r from-slate-800 to-slate-700 p-3 rounded-2xl shadow-xl border border-slate-600/30">
               <h2 className="text-lg font-semibold text-white mb-3">Range 30-39</h2>
-              {[...Array(10)].map((_, index) => (
+              {column2Base.map((base, index) => (
                 <div key={index} className="flex items-center gap-2 mb-2">
                   <div className="w-16 bg-purple-600/30 border border-purple-500/50 rounded-lg text-center py-3 text-white font-bold">
-                    {column2Base[index]}
+                    {base}
                   </div>
                   <input
                     type="number"
@@ -187,19 +333,19 @@ const page = () => {
                     max="99"
                   />
                   <div className="w-20 bg-green-600/20 border border-green-500/30 rounded-lg text-center py-3 text-green-400 font-bold">
-                    {column2RowOutputs[index][0]}
+                    {getFinalValue(apiOutputs.series30[index], column2Numbers[index], base)}
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* Column 3 */}
+            {/* Column 3: Range 50-59 */}
             <div className="bg-gradient-to-r from-slate-800 to-slate-700 p-3 rounded-2xl shadow-xl border border-slate-600/30">
               <h2 className="text-lg font-semibold text-white mb-3">Range 50-59</h2>
-              {[...Array(10)].map((_, index) => (
+              {column3Base.map((base, index) => (
                 <div key={index} className="flex items-center gap-2 mb-2">
                   <div className="w-16 bg-purple-600/30 border border-purple-500/50 rounded-lg text-center py-3 text-white font-bold">
-                    {column3Base[index]}
+                    {base}
                   </div>
                   <input
                     type="number"
@@ -210,7 +356,7 @@ const page = () => {
                     max="99"
                   />
                   <div className="w-20 bg-green-600/20 border border-green-500/30 rounded-lg text-center py-3 text-green-400 font-bold">
-                    {column3RowOutputs[index][0]}
+                    {getFinalValue(apiOutputs.series50[index], column3Numbers[index], base)}
                   </div>
                 </div>
               ))}
@@ -219,11 +365,12 @@ const page = () => {
 
           {/* Actions */}
           <div className="mt-8 bg-gradient-to-r from-slate-800 to-slate-700 p-6 rounded-2xl shadow-xl border border-slate-600/30 text-center">
-            <button onClick={generateRandomOutputs} className="bg-orange-600 text-white px-6 py-3 rounded-lg mr-4">
-              <FaRandom /> Generate Random Outputs
-            </button>
-            <button className="bg-green-600 text-white px-6 py-3 rounded-lg">
-              <FaSave /> Save All Data
+            <button
+              className="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold"
+              disabled={loading}
+              onClick={handleSaveAllData}
+            >
+              {loading ? "Saving..." : <><FaSave /> Save All Data</>}
             </button>
           </div>
         </div>
@@ -237,6 +384,15 @@ const page = () => {
           onClose={closeWinningPercentageModal}
           onUpdate={val => setWinningPercentage(val)}
           currentPercentage={winningPercentage}
+        />
+
+        {/* Slots Modal */}
+        <AdvanceDrawModal
+          open={slotsModalOpen}
+          onClose={() => setSlotsModalOpen(false)}
+          selectedTimes={selectedSlots}
+          setSelectedTimes={setSelectedSlots}
+          onConfirm={handleSlotConfirm}
         />
       </div>
     </div>
