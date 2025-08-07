@@ -12,17 +12,17 @@ const page = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
-    username: '',
+    userName: '',
     address: '',
-    phone: '',
-    email: '',
+    phoneNumber: '',
+    emailAddress: '',
     password: ''
   });
 
   const [admins, setAdmins] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Fetch admins from backend
+  // Fetch super admins from backend
   useEffect(() => {
     fetchAdmins();
   }, []);
@@ -30,10 +30,10 @@ const page = () => {
   const fetchAdmins = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/get-admins`);
-      setAdmins(res.data.admins || []);
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/superadmins`);
+      setAdmins(res.data.superAdmins || []);
     } catch (error) {
-      console.error("Failed to fetch admins:", error);
+      console.error("Failed to fetch super admins:", error);
       setAdmins([]);
     }
     setLoading(false);
@@ -47,10 +47,10 @@ const page = () => {
     setIsModalOpen(false);
     setFormData({
       fullName: '',
-      username: '',
+      userName: '',
       address: '',
-      phone: '',
-      email: '',
+      phoneNumber: '',
+      emailAddress: '',
       password: ''
     });
   };
@@ -64,38 +64,30 @@ const page = () => {
     });
   };
 
-  // Handle form submission (create admin)
- const handleSubmit = async (e) => {
-  e.preventDefault();
+  // Handle form submission (create super admin)
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-  const newAdmin = {
-    fullName: formData.fullName,
-    userName: formData.username,
-    address: formData.address,
-    phoneNumber: formData.phone,
-    emailAddress: formData.email,
-    password: formData.password
+    try {
+      const res = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/create-superadmin`,
+        formData,
+        { headers: { "Content-Type": "application/json" } }
+      );
+      if (res.status === 201) {
+        fetchAdmins();
+        closeModal();
+        toast.success("Super Admin created successfully!");
+      } else {
+        toast.error(res.data.message || "Failed to add super admin");
+      }
+    } catch (error) {
+      console.error("Error creating super admin:", error);
+      toast.error(error?.response?.data?.message || "Error creating super admin");
+    }
   };
 
-  try {
-    const res = await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}/create-admin`, newAdmin, {
-      headers: { "Content-Type": "application/json" }
-    });
-    if (res.status === 201) {
-      fetchAdmins();
-      closeModal();
-      toast.success("Admin created successfully!");
-    } else {
-      toast.error(res.data.message || "Failed to add admin");
-    }
-  } catch (error) {
-    console.error("Error creating admin:", error);
-    toast.error(error?.response?.data?.message || "Error creating admin");
-  }
-};
-
-
-  // Delete admin - placeholder (implement API if backend supports)
+  // Delete super admin - placeholder (implement API if backend supports)
   const deleteAdmin = (index) => {
     alert("Delete functionality should be implemented with a backend endpoint!");
     // To implement: Call axios.delete here, then fetchAdmins();
@@ -119,11 +111,11 @@ const page = () => {
             >
               <div>
                 <h1 className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-slate-800 to-slate-600 mb-2">
-                  Admin Management
+                  Super Admin Management
                 </h1>
-                <p className="text-slate-600 text-lg">Manage your admin users with ease</p>
+                <p className="text-slate-600 text-lg">Manage your super admin users with ease</p>
               </div>
-              
+
               <motion.button
                 whileHover={{ scale: 1.05, boxShadow: "0 20px 40px rgba(168, 85, 247, 0.3)" }}
                 whileTap={{ scale: 0.95 }}
@@ -144,10 +136,10 @@ const page = () => {
             className="bg-white rounded-3xl shadow-2xl overflow-hidden"
           >
             <div className="bg-gradient-to-r from-slate-800 to-slate-700 px-8 py-6">
-              <h2 className="text-2xl font-bold text-white">Admin List</h2>
-              <p className="text-slate-300 mt-1">Manage all administrator accounts</p>
+              <h2 className="text-2xl font-bold text-white">Super Admin List</h2>
+              <p className="text-slate-300 mt-1">Manage all super administrator accounts</p>
             </div>
-            
+
             <div className="overflow-x-auto ">
               <table className="w-full">
                 <thead className="bg-slate-50">
@@ -167,7 +159,7 @@ const page = () => {
                     </tr>
                   ) : admins.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="text-center py-10 text-slate-500">No admins found</td>
+                      <td colSpan={6} className="text-center py-10 text-slate-500">No super admins found</td>
                     </tr>
                   ) : (
                     admins.map((admin, index) => (
@@ -188,12 +180,12 @@ const page = () => {
                             <div className="w-10 h-10 bg-gradient-to-r from-slate-600 to-slate-500 rounded-full flex items-center justify-center">
                               <FaUser className="text-white text-sm" />
                             </div>
-                            <span className="font-medium text-slate-700">{admin.userName || admin.username}</span>
+                            <span className="font-medium text-slate-700">{admin.userName}</span>
                           </div>
                         </td>
                         <td className="px-8 py-6 text-slate-700 font-medium">{admin.fullName}</td>
-                        <td className="px-8 py-6 text-slate-600">{admin.phoneNumber || admin.phone}</td>
-                        <td className="px-8 py-6 text-slate-600">{admin.emailAddress || admin.email}</td>
+                        <td className="px-8 py-6 text-slate-600">{admin.phoneNumber}</td>
+                        <td className="px-8 py-6 text-slate-600">{admin.emailAddress}</td>
                         <td className="px-8 py-6">
                           <div className="flex items-center gap-3">
                             <motion.button
@@ -222,7 +214,7 @@ const page = () => {
             </div>
           </motion.div>
 
-          {/* Modal for Adding Admin */}
+          {/* Modal for Adding Super Admin */}
           <AnimatePresence>
             {isModalOpen && (
               <motion.div
@@ -240,8 +232,8 @@ const page = () => {
                   <div className="p-8">
                     <div className="flex justify-between items-center mb-8">
                       <div>
-                        <h2 className="text-3xl font-bold text-white mb-2">Add New Admin</h2>
-                        <p className="text-slate-300">Create a new administrator account</p>
+                        <h2 className="text-3xl font-bold text-white mb-2">Add New Super Admin</h2>
+                        <p className="text-slate-300">Create a new super administrator account</p>
                       </div>
                       <motion.button
                         whileHover={{ scale: 1.1, rotate: 90 }}
@@ -278,8 +270,8 @@ const page = () => {
                           </label>
                           <input
                             type="text"
-                            name="username"
-                            value={formData.username}
+                            name="userName"
+                            value={formData.userName}
                             onChange={handleInputChange}
                             className="w-full px-6 py-4 bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-slate-400 rounded-2xl focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all duration-300"
                             placeholder="Enter username"
@@ -312,8 +304,8 @@ const page = () => {
                           </label>
                           <input
                             type="tel"
-                            name="phone"
-                            value={formData.phone}
+                            name="phoneNumber"
+                            value={formData.phoneNumber}
                             onChange={handleInputChange}
                             className="w-full px-6 py-4 bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-slate-400 rounded-2xl focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all duration-300"
                             placeholder="Enter phone number"
@@ -328,8 +320,8 @@ const page = () => {
                           </label>
                           <input
                             type="email"
-                            name="email"
-                            value={formData.email}
+                            name="emailAddress"
+                            value={formData.emailAddress}
                             onChange={handleInputChange}
                             className="w-full px-6 py-4 bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-slate-400 rounded-2xl focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all duration-300"
                             placeholder="Enter email address"
@@ -370,7 +362,7 @@ const page = () => {
                           type="submit"
                           className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold rounded-2xl transition-all duration-300 shadow-lg"
                         >
-                          Create Admin
+                          Create Super Admin
                         </motion.button>
                       </div>
                     </form>

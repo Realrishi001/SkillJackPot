@@ -4,40 +4,42 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import { toast } from 'react-hot-toast'; // <-- add this!
+import { toast } from 'react-hot-toast';
 
 const AdminLogin = () => {
   const router = useRouter();
 
-  const [name, setName] = useState('');
+  const [userName, setUserName] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!name || !password) {
-      toast.error('Both fields are required.');
-      return;
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  if (!userName || !password) {
+    toast.error('Both fields are required.');
+    return;
+  }
+  try {
+    const res = await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}/superadmin-login`, {
+      userName,
+      password
+    });
+    // Use status and token as your success condition:
+    if (res.status === 200 && res.data.token) {
+      toast.success(res.data.message || 'Login successful!');
+      localStorage.setItem('auth_token', res.data.token);
+      router.push('/admindashboard');
+    } else {
+      toast.error(res.data.message || 'Login failed.');
     }
-    try {
-      const res = await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}/main-admin-login`, {
-        adminId: name,
-        password
-      });
-      if (res.data.success) {
-        toast.success(res.data.message || 'Login successful!');
-        localStorage.setItem('auth_token', res.data.token);
-        router.push('/admindashboard');
-      } else {
-        toast.error(res.data.message || 'Login failed.');
-      }
-    } catch (err) {
-      const errMsg =
-        err?.response?.data?.message ||
-        err?.message ||
-        'Invalid credentials.';
-      toast.error(errMsg);
-    }
-  };
+  } catch (err) {
+    const errMsg =
+      err?.response?.data?.message ||
+      err?.message ||
+      'Invalid credentials.';
+    toast.error(errMsg);
+  }
+};
+
 
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 overflow-hidden">
@@ -52,7 +54,7 @@ const AdminLogin = () => {
           {/* Logo section */}
           <div className="text-center mb-8">
             <div className="bg-gradient-to-r from-purple-400 to-pink-400 p-3 rounded-2xl inline-block mb-4">
-              <Image src="/Logo.png" alt="Logo" className='filter brightness-95 w-fit m-auto' width={190} height={80} />
+              <Image src="/Logo.png" alt="Logo" className='filter brightness-95 w-fit m-auto' width={190} height={80} priority />
             </div>
           </div>
           {/* Header */}
@@ -60,25 +62,25 @@ const AdminLogin = () => {
             <h2 className="text-4xl font-bold bg-gradient-to-r from-white to-purple-200 bg-clip-text text-transparent mb-2">
               Welcome Back
             </h2>
-            <p className="text-gray-300 text-lg">Sign in to your admin dashboard</p>
+            <p className="text-gray-300 text-lg">Sign in to your super admin dashboard</p>
           </div>
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="name" className="block text-sm text-white mb-2">Your Name</label>
+              <label htmlFor="userName" className="block text-sm text-white mb-2">Username</label>
               <input
                 type="text"
-                id="name"
-                name="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                id="userName"
+                name="userName"
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)}
                 className="w-full px-6 py-4 bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-gray-300 outline-none rounded-xl focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all duration-300"
-                placeholder="Enter your name"
+                placeholder="Enter your username"
                 required
               />
             </div>
             <div>
-              <label htmlFor="password" className="block text-sm text-white mb-2">Your Password</label>
+              <label htmlFor="password" className="block text-sm text-white mb-2">Password</label>
               <input
                 type="password"
                 id="password"
@@ -101,7 +103,7 @@ const AdminLogin = () => {
           </form>
           <div className="text-center mt-6">
             <p className="text-gray-400 text-sm">
-              Secure admin access • Protected by encryption
+              Secure super admin access • Protected by encryption
             </p>
           </div>
         </div>
