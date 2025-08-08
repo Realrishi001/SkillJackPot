@@ -10,15 +10,16 @@ const Page = () => {
   const router = useRouter();
 
   // State for dashboard stats
-const [stats, setStats] = useState({
-  totalAdmins: 0,
-  ticketsToday: 0,
-  totalPoints: 0,
-  netPoints: 0,
-  winningPoints: 0,
-  shopPoints: 0,
-  adminAmount: 0  
-});
+  const [stats, setStats] = useState({
+    totalAdmins: 0,
+    ticketsToday: 0,
+    cancelTickets: 0,     // <-- added
+    totalPoints: 0,
+    netPoints: 0,
+    winningPoints: 0,
+    shopPoints: 0,
+    adminAmount: 0
+  });
 
   useEffect(() => {
     // Auth check
@@ -34,40 +35,38 @@ const [stats, setStats] = useState({
         );
         console.log("Dashboard Data:", resDashboard.data);
 
-
         // Fetch today's points data
         const resPoints = await axios.get(
           `${process.env.NEXT_PUBLIC_API_BASE_URL}/get-points`
         );
 
-       setStats({
+        setStats({
           totalAdmins: resDashboard.data.totalAdmins || 0,
           ticketsToday: resDashboard.data.totalTickets || 0,
+          cancelTickets: resDashboard.data.totalCancelledTickets || 0, // <-- use backend count
           totalPoints: resPoints.data.totalPointsToday || 0,
           netPoints: resPoints.data.netAmount || 0,
           winningPoints: resPoints.data.winningAmount || 0,
           shopPoints: resPoints.data.commissionAmount || 0,
-          adminAmount: resPoints.data.adminAmount || 0    // <-- add this line
+          adminAmount: resPoints.data.adminAmount || 0
         });
-
 
         console.log(resDashboard.data);
         console.log(resPoints.data);
-
 
       } catch (err) {
         setStats({
           totalAdmins: 0,
           ticketsToday: 0,
+          cancelTickets: 0,  // <-- reset on error
           totalPoints: 0,
           netPoints: 0,
           winningPoints: 0,
-          shopPoints: 0
+          shopPoints: 0,
+          adminAmount: 0
         });
       }
     };
-
-    console.log(stats);
 
     fetchStats();
   }, []);
@@ -123,13 +122,13 @@ const [stats, setStats] = useState({
                 <div className='absolute -bottom-2 -right-2 w-16 h-16 bg-gradient-to-br from-white/10 to-transparent rounded-full'></div>
               </div>
 
-              {/* Cancel Tickets (reset to 0) */}
+              {/* Cancel Tickets (now from API) */}
               <div className='group relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 overflow-hidden'>
                 <div className='absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 opacity-50'></div>
                 <div className='relative z-10 flex items-center justify-between'>
                   <div className='text-white'>
                     <h2 className='text-sm font-bold opacity-90 mb-1'>Cancel Tickets</h2>
-                    <h1 className='text-3xl font-bold'>0</h1>
+                    <h1 className='text-3xl font-bold'>{stats.cancelTickets}</h1>
                   </div>
                   <div className='bg-white/20 p-3 rounded-xl backdrop-blur-sm'>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
@@ -141,7 +140,7 @@ const [stats, setStats] = useState({
                 <div className='absolute -bottom-2 -right-2 w-16 h-16 bg-gradient-to-br from-white/10 to-transparent rounded-full'></div>
               </div>
 
-              {/* Support Enquiry (reset to 0) */}
+              {/* Support Enquiry (still static 0 for now) */}
               <div className='group relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 overflow-hidden'>
                 <div className='absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 opacity-50'></div>
                 <div className='relative z-10 flex items-center justify-between'>
@@ -262,7 +261,6 @@ const [stats, setStats] = useState({
                   </div>
                 </div>
               </div>
-
 
             </div>
           </div>

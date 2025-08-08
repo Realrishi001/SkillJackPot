@@ -61,46 +61,59 @@ const ShopMaster = () => {
 
   const handleEdit = (shop) => {
     setIsModalVisible(true);
-    setNewShop({ ...shop, password: '' }); // (optional) clear password for editing
+    setNewShop({ ...shop, password: '' }); // clear password for editing
     setIsEditMode(true);
     setEditId(shop.id);
   };
 
   const handleInputChange = (e) => {
-    const { name, value, type } = e.target;
-    setNewShop({ ...newShop, [name]: type === "number" ? Number(value) : value });
+    const { name, value } = e.target;
+    // Keep values as strings (even for number inputs) so empty is allowed; convert when sending.
+    setNewShop(prev => ({ ...prev, [name]: value }));
+  };
+
+  // helper: build payload for create/update, converting commission/balance only if provided
+  const buildPayload = (base) => {
+    const payload = { ...base };
+
+    if (payload.commission === '' || payload.commission === null || payload.commission === undefined) {
+      delete payload.commission;
+    } else {
+      payload.commission = Number(payload.commission);
+    }
+
+    if (payload.balance === '' || payload.balance === null || payload.balance === undefined) {
+      delete payload.balance;
+    } else {
+      payload.balance = Number(payload.balance);
+    }
+
+    // Trim simple strings (optional)
+    ['shopName','address','phoneNumber','userName','password','gstNumber','panNumber','contactPersonName','contactPersonPhone','contactPersonEmail','openTime','closeTime','emailAddress']
+      .forEach(k => {
+        if (payload[k] !== undefined && typeof payload[k] === 'string') {
+          payload[k] = payload[k].trim();
+        }
+      });
+
+    return payload;
   };
 
   // ADD SHOP
   const handleAddShopSubmit = async () => {
-    if (
-      !newShop.shopName ||
-      !newShop.address ||
-      !newShop.phoneNumber ||
-      !newShop.userName ||
-      !newShop.password ||
-      newShop.commission === '' ||
-      newShop.balance === '' ||
-      !newShop.gstNumber ||
-      !newShop.panNumber ||
-      !newShop.contactPersonName ||
-      !newShop.contactPersonPhone ||
-      !newShop.contactPersonEmail ||
-      !newShop.openTime ||
-      !newShop.closeTime ||
-      !newShop.emailAddress
-    ) {
-      toast.error("Please fill all required fields.");
+    // Only these three are required on CREATE
+    if (!newShop.shopName?.trim() || !newShop.userName?.trim() || !newShop.password?.trim()) {
+      toast.error("Shop Name, Username and Password are required.");
       return;
     }
+
     try {
-      const res = await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}/create-admin`, {
-        ...newShop,
-        commission: Number(newShop.commission),
-        balance: Number(newShop.balance),
-      }, {
-        headers: { "Content-Type": "application/json" }
-      });
+      const payload = buildPayload({ ...newShop });
+      const res = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/create-admin`,
+        payload,
+        { headers: { "Content-Type": "application/json" } }
+      );
 
       if (res.status === 201) {
         toast.success("Shop/Admin added successfully!");
@@ -117,60 +130,66 @@ const ShopMaster = () => {
   };
 
   // UPDATE SHOP
-// For PATCH: /update-admin
-const handleUpdateShopSubmit = async () => {
-  if (!editId) return; // safety
+  // For POST: /update-admin (your API)
+  const handleUpdateShopSubmit = async () => {
+    if (!editId) return; // safety
 
-  // (Optional: add validation logic here)
-
-  try {
-    const res = await axios.post(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL}/update-admin`,
-      {
-        ...newShop,
-        id: editId, // Must include id in body!
-        commission: Number(newShop.commission),
-        balance: Number(newShop.balance),
-      },
-      { headers: { "Content-Type": "application/json" } }
-    );
-
-    if (res.status === 200) {
-      toast.success("Shop/Admin updated successfully!");
-      fetchShops();
-      setIsModalVisible(false);
-      setNewShop(initialShop);
-      setIsEditMode(false);
-      setEditId(null);
-    } else {
-      toast.error(res.data.message || "Failed to update shop");
+    // Only Shop Name and Username should be present ideally; Password is optional on EDIT
+    if (!newShop.shopName?.trim() || !newShop.userName?.trim()) {
+      toast.error("Shop Name and Username are required.");
+      return;
     }
-  } catch (error) {
-    console.error("Error updating shop:", error);
-    toast.error(error?.response?.data?.message || "Error updating shop");
-  }
-};
 
-const handleDelete = async (id) => {
-  if (!window.confirm("Are you sure you want to delete this shop/admin?")) return;
+    try {
+      const payload = buildPayload({ ...newShop, id: editId });
 
-  try {
-    const res = await axios.post(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL}/delete-admin`,
-      { id },  // send as body!
-      { headers: { "Content-Type": "application/json" } }
-    );
-    if (res.status === 200) {
-      toast.success("Shop/Admin deleted successfully!");
-      fetchShops(); 
-    } else {
-      toast.error(res.data.message || "Failed to delete shop");
+      // If password is empty in edit mode, do NOT send it (avoid overwriting with empty)
+      if (!payload.password) {
+        delete payload.password;
+      }
+
+      const res = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/update-admin`,
+        payload,
+        { headers: { "Content-Type": "application/json" } }
+      );
+
+      if (res.status === 200) {
+        toast.success("Shop/Admin updated successfully!");
+        fetchShops();
+        setIsModalVisible(false);
+        setNewShop(initialShop);
+        setIsEditMode(false);
+        setEditId(null);
+      } else {
+        toast.error(res.data.message || "Failed to update shop");
+      }
+    } catch (error) {
+      console.error("Error updating shop:", error);
+      toast.error(error?.response?.data?.message || "Error updating shop");
     }
-  } catch (error) {
-    console.error("Error deleting shop:", error);
-    toast.error(error?.response?.data?.message || "Error deleting shop");
-  }
-};
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this shop/admin?")) return;
+
+    try {
+      const res = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/delete-admin`,
+        { id },  // send as body!
+        { headers: { "Content-Type": "application/json" } }
+      );
+      if (res.status === 200) {
+        toast.success("Shop/Admin deleted successfully!");
+        fetchShops(); 
+      } else {
+        toast.error(res.data.message || "Failed to delete shop");
+      }
+    } catch (error) {
+      console.error("Error deleting shop:", error);
+      toast.error(error?.response?.data?.message || "Error deleting shop");
+    }
+  };
 
   // Animation variants...
   const containerVariants = {
@@ -242,7 +261,7 @@ const handleDelete = async (id) => {
 
             {/* Stats Cards */}
             <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-              {[ // ...stat cards logic stays the same
+              {[
                 { title: 'Total Shops', value: shopData.length, icon: '🏪', color: 'from-blue-500 to-cyan-500' },
                 { title: 'Active Shops', value: shopData.length, icon: '✅', color: 'from-green-500 to-emerald-500' },
                 { title: 'Commission 7%', value: shopData.filter(s => Number(s.commission) === 7).length, icon: '💰', color: 'from-yellow-500 to-orange-500' },
@@ -398,22 +417,23 @@ const handleDelete = async (id) => {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {[ // input fields
+                    {[
+                      // ONLY these are required (password not required in edit)
                       { name: 'shopName', placeholder: 'Shop Name', type: 'text', required: true },
-                      { name: 'address', placeholder: 'Shop Address', type: 'text', required: true },
-                      { name: 'phoneNumber', placeholder: 'Phone Number', type: 'tel', required: true },
+                      { name: 'address', placeholder: 'Shop Address', type: 'text', required: false },
+                      { name: 'phoneNumber', placeholder: 'Phone Number', type: 'tel', required: false },
                       { name: 'userName', placeholder: 'Username', type: 'text', required: true },
-                      { name: 'password', placeholder: 'Password', type: 'password', required: !isEditMode }, // Not required in edit
-                      { name: 'commission', placeholder: 'Commission (%)', type: 'number', required: true },
-                      { name: 'balance', placeholder: 'Balance', type: 'number', required: true },
-                      { name: 'gstNumber', placeholder: 'GST Number', type: 'text', required: true },
-                      { name: 'panNumber', placeholder: 'PAN Number', type: 'text', required: true },
-                      { name: 'contactPersonName', placeholder: 'Contact Person Name', type: 'text', required: true },
-                      { name: 'contactPersonPhone', placeholder: 'Contact Person Phone', type: 'tel', required: true },
-                      { name: 'contactPersonEmail', placeholder: 'Contact Person Email', type: 'email', required: true },
-                      { name: 'openTime', placeholder: 'Open Time', type: 'time', required: true },
-                      { name: 'closeTime', placeholder: 'Close Time', type: 'time', required: true },
-                      { name: 'emailAddress', placeholder: 'Shop Email', type: 'email', required: true },
+                      { name: 'password', placeholder: 'Password', type: 'password', required: !isEditMode },
+                      { name: 'commission', placeholder: 'Commission (%)', type: 'number', required: false },
+                      { name: 'balance', placeholder: 'Balance', type: 'number', required: false },
+                      { name: 'gstNumber', placeholder: 'GST Number', type: 'text', required: false },
+                      { name: 'panNumber', placeholder: 'PAN Number', type: 'text', required: false },
+                      { name: 'contactPersonName', placeholder: 'Contact Person Name', type: 'text', required: false },
+                      { name: 'contactPersonPhone', placeholder: 'Contact Person Phone', type: 'tel', required: false },
+                      { name: 'contactPersonEmail', placeholder: 'Contact Person Email', type: 'email', required: false },
+                      { name: 'openTime', placeholder: 'Open Time', type: 'time', required: false },
+                      { name: 'closeTime', placeholder: 'Close Time', type: 'time', required: false },
+                      { name: 'emailAddress', placeholder: 'Shop Email', type: 'email', required: false },
                     ].map((field, index) => (
                       <motion.div
                         key={field.name}
