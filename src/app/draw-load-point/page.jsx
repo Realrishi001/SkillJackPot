@@ -33,7 +33,6 @@ function mergeRows(data, seriesKey) {
       }
     });
   });
-  // Return as array
   return Object.values(merged);
 }
 
@@ -63,8 +62,23 @@ function getPagination(current, total) {
   return rangeWithDots;
 }
 
+// Make drawTime into an array of strings
+const toTimeArray = (val) => {
+  if (Array.isArray(val)) return val.map(String);
+  if (typeof val === "string") {
+    try {
+      const parsed = JSON.parse(val);
+      return Array.isArray(parsed) ? parsed.map(String) : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
+
 const page = () => {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [time, setTime] = useState(""); // empty means "All times"
   const [summary, setSummary] = useState({
     qty10: 0, qty30: 0, qty50: 0, totalQty: 0,
     points10: 0, points30: 0, points50: 0,
@@ -80,7 +94,7 @@ const page = () => {
     series50: { limit: 10, page: 1 },
   });
 
-  // Fetch summary cards
+  // Fetch summary cards (unchanged; still uses /draw-details)
   const fetchSummary = async (selectedDate) => {
     try {
       const res = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/draw-details`);
@@ -111,21 +125,34 @@ const page = () => {
     } catch (err) { console.error("Error fetching summary:", err); }
   };
 
-  // Fetch table-draw-details for bottom tables
-  const fetchSeriesTables = async (selectedDate) => {
+  // Fetch bottom tables via POST /table-draw-details
+  // Controller accepts ONLY drawDate; we filter by time on the client (if user selected one)
+  const fetchSeriesTables = async (selectedDate, selectedTime) => {
     try {
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/table-draw-details`);
-      const tickets = res.data.tickets || [];
-      const filtered = tickets.filter(ticket =>
-        new Date(ticket.createdAt).toISOString().split('T')[0] === selectedDate
+      const res = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/table-draw-details`,
+        { drawDate: selectedDate },
+        { headers: { "Content-Type": "application/json" } }
       );
-      setSeriesTableData(filtered);
-    } catch (err) { console.error("Error fetching table series:", err); }
+
+      let tickets = res.data?.tickets || [];
+
+      // If a time is selected, filter on client
+      if (selectedTime) {
+        const want = String(selectedTime).trim();
+        tickets = tickets.filter(t => toTimeArray(t.drawTime).includes(want));
+      }
+
+      setSeriesTableData(tickets);
+    } catch (err) {
+      console.error("Error fetching table series:", err?.response?.data || err.message);
+      setSeriesTableData([]);
+    }
   };
 
   const fetchAll = async () => {
     setLoading(true);
-    await Promise.all([fetchSummary(date), fetchSeriesTables(date)]);
+    await Promise.all([fetchSummary(date), fetchSeriesTables(date, time)]);
     setLoading(false);
     // Reset table page to 1 on search
     setTableStates(s => ({
@@ -135,6 +162,7 @@ const page = () => {
     }));
   };
 
+  // Initial load: today's date and NO time (show all)
   useEffect(() => { fetchAll(); /* eslint-disable-next-line */ }, []);
 
   const handleSearch = () => { fetchAll(); };
@@ -149,7 +177,6 @@ const page = () => {
 
   // Table renderer
   const renderSeriesTable = (seriesKey, color, title, headerColor) => {
-    // Prepare merged and sliced data
     const merged = mergeRows(seriesTableData, seriesKey);
     const { limit, page } = tableStates[seriesKey];
     const totalRows = merged.length;
@@ -165,7 +192,7 @@ const page = () => {
           <select
             value={limit}
             onChange={e => handleLimitChange(seriesKey, Number(e.target.value))}
-            className="bg-slate-900 border border-slate-500 text-white rounded px-3 py-1 ml-3 text-sm"
+            className="bg-slate-900 border border-slate-500 text-white rounded px-3 py-1 ml-3 text-sm "
           >
             {PAGE_LIMIT_OPTIONS.map(opt =>
               <option key={opt} value={opt}>{opt}</option>
@@ -198,7 +225,6 @@ const page = () => {
         </table>
         {/* Pagination controls */}
         <div className="flex flex-col gap-5 justify-end items-center mt-4 text-slate-400 text-xs">
-          
           <div className="flex gap-1 flex-wrap">
             <button
               className="px-2 py-1 rounded bg-slate-700 text-white hover:bg-slate-600"
@@ -273,13 +299,21 @@ const page = () => {
                   <FaClock className="text-purple-400" />
                   Select Time
                 </label>
-                <select className="w-full px-6 py-4 bg-black/10 backdrop-blur-sm border border-white/20 text-white outline-none rounded-xl focus:ring-2 focus:ring-purple-400 hover:bg-white/15">
-                  <option value="">Select Time</option>
+                <select
+                  value={time}
+                  onChange={e => setTime(e.target.value)}
+                  className="w-full px-6 py-4 bg-slate-800 border border-white/20 text-white outline-none rounded-xl focus:ring-2 focus:ring-purple-400 hover:bg-slate-700 appearance-none transparent-scrollbar"
+                >
+                  <option value="" className="bg-slate-800 text-white">All Times</option>
                   {[...Array(48).keys()].map(i => {
                     const hours = Math.floor(i / 2);
                     const minutes = (i % 2) === 0 ? '00' : '30';
-                    const time = `${hours === 0 ? '12' : hours % 12}:${minutes} ${hours < 12 ? 'AM' : 'PM'}`;
-                    return <option key={i} value={time}>{time}</option>;
+                    const timeStr = `${hours === 0 ? '12' : hours % 12}:${minutes} ${hours < 12 ? 'AM' : 'PM'}`;
+                    return (
+                      <option key={i} value={timeStr} className="bg-slate-800 text-white">
+                        {timeStr}
+                      </option>
+                    );
                   })}
                 </select>
               </div>
@@ -322,22 +356,22 @@ const page = () => {
             </div>
             {/* Ticket Points */}
             <div className="bg-gradient-to-r from-slate-800 to-slate-700 p-6 rounded-2xl shadow-xl border border-slate-600/30">
-              <h3 className="text-lg font-semibold text-white mb-4">Ticket Points</h3>
+              <h3 className="text-lg font-semibold text-white mb-4">Ticket Amount</h3>
               <div className="space-y-4">
                 <div className="flex justify-between items-center p-3 bg-slate-800/50 rounded-lg">
-                  <span className="text-slate-300 font-medium">Points of 10:</span>
+                  <span className="text-slate-300 font-medium">Amount of 10:</span>
                   <span className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-lg font-bold">{formatNumber(summary.points10)}</span>
                 </div>
                 <div className="flex justify-between items-center p-3 bg-slate-800/50 rounded-lg">
-                  <span className="text-slate-300 font-medium">Points of 30:</span>
+                  <span className="text-slate-300 font-medium">Amount of 30:</span>
                   <span className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-lg font-bold">{formatNumber(summary.points30)}</span>
                 </div>
                 <div className="flex justify-between items-center p-3 bg-slate-800/50 rounded-lg">
-                  <span className="text-slate-300 font-medium">Points of 50:</span>
+                  <span className="text-slate-300 font-medium">Amount of 50:</span>
                   <span className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-lg font-bold">{formatNumber(summary.points50)}</span>
                 </div>
                 <div className="flex justify-between items-center p-3 bg-slate-800/50 rounded-lg">
-                  <span className="text-slate-300 font-medium">Total Points:</span>
+                  <span className="text-slate-300 font-medium">Total Amount:</span>
                   <span className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-lg font-bold">{formatNumber(summary.totalPoints)}</span>
                 </div>
               </div>
