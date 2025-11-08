@@ -162,8 +162,25 @@ const page = () => {
     }));
   };
 
-  // Initial load: today's date and NO time (show all)
-  useEffect(() => { fetchAll(); /* eslint-disable-next-line */ }, []);
+useEffect(() => {
+  // Get current Indian time (IST)
+  const now = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+  const currentTime = new Date(now);
+  const hours = currentTime.getHours();
+  const minutes = currentTime.getMinutes();
+
+  const roundedMinutes = minutes < 30 ? 0 : 30;
+
+  const displayHours = ((hours + 11) % 12 + 1); // 0->12, 13->1 etc.
+  const ampm = hours < 12 ? "AM" : "PM";
+  const displayMinutes = roundedMinutes === 0 ? "00" : "30";
+  const slot = `${displayHours}:${displayMinutes} ${ampm}`;
+
+  setTime(slot);
+  fetchAll();
+
+}, []);
+
 
   const handleSearch = () => { fetchAll(); };
 
