@@ -87,21 +87,30 @@
       }
     };
 
-    const handleAddSetCommission = async () => {
-      if (newSetCommission.shopName && newSetCommission.commission !== "") {
-        try {
-          await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}/update-commission`, {
-            userName: newSetCommission.shopName,
-            commission: Number(newSetCommission.commission)
-          });
-          await fetchAllMasterData(); // Refresh everything!
-          setNewSetCommission({ shopName: '', commission: '', package: '' });
-          setSetCommissionModalOpen(false);
-        } catch (err) {
-          console.error(err);
-        }
-      }
-    };
+const handleAddSetCommission = async () => {
+  const commissionValue = Number(newSetCommission.commission);
+
+  if (newSetCommission.shopName && newSetCommission.commission !== "") {
+    // Validation: commission should be between 0 and 10
+    if (commissionValue < 0 || commissionValue > 10) {
+      alert("Commission must be between 0% and 10%");
+      return;
+    }
+
+    try {
+      await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}/update-commission`, {
+        userName: newSetCommission.shopName,
+        commission: commissionValue
+      });
+      await fetchAllMasterData(); // Refresh everything!
+      setNewSetCommission({ shopName: '', commission: '', package: '' });
+      setSetCommissionModalOpen(false);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+};
+
 
     const handleAddBalance = async () => {
       if (newBalance.shopName && newBalance.amount) {
@@ -273,8 +282,11 @@
                     value={newSetCommission.commission}
                     onChange={(e) => handleInputChange(e, setNewSetCommission)}
                     placeholder="Enter Commission (%)"
+                    min="0"
+                    max="10"
                     className="w-full"
                   />
+
                 </div>
                 <div className="flex justify-end mb-6">
                   <Button onClick={handleAddSetCommission} className="mr-4">
