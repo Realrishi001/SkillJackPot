@@ -317,22 +317,26 @@ useEffect(() => {
                   Select Time
                 </label>
                 <select
-                  value={time}
-                  onChange={e => setTime(e.target.value)}
-                  className="w-full px-6 py-4 bg-slate-800 border border-white/20 text-white outline-none rounded-xl focus:ring-2 focus:ring-purple-400 hover:bg-slate-700 appearance-none transparent-scrollbar"
-                >
-                  <option value="" className="bg-slate-800 text-white">All Times</option>
-                  {[...Array(48).keys()].map(i => {
-                    const hours = Math.floor(i / 2);
-                    const minutes = (i % 2) === 0 ? '00' : '30';
-                    const timeStr = `${hours === 0 ? '12' : hours % 12}:${minutes} ${hours < 12 ? 'AM' : 'PM'}`;
-                    return (
-                      <option key={i} value={timeStr} className="bg-slate-800 text-white">
-                        {timeStr}
-                      </option>
-                    );
-                  })}
-                </select>
+  value={time}
+  onChange={e => setTime(e.target.value)}
+  className="w-full px-6 py-4 bg-slate-800 border border-white/20 text-white outline-none rounded-xl focus:ring-2 focus:ring-purple-400 hover:bg-slate-700 appearance-none transparent-scrollbar"
+>
+  <option value="" className="bg-slate-800 text-white">All Times</option>
+  {[...Array(96).keys()].map(i => {
+    const hours = Math.floor(i / 4);
+    const minutes = (i % 4) * 15;
+    const hours12 = hours % 12 === 0 ? 12 : hours % 12;
+    const ampm = hours < 12 ? "AM" : "PM";
+    const minuteStr = minutes.toString().padStart(2, "0");
+    const timeStr = `${hours12}:${minuteStr} ${ampm}`;
+    return (
+      <option key={i} value={timeStr} className="bg-slate-800 text-white">
+        {timeStr}
+      </option>
+    );
+  })}
+</select>
+
               </div>
               <div className="flex items-end">
                 <button
