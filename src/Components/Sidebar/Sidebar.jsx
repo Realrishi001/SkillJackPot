@@ -118,7 +118,7 @@ const Sidebar = () => {
     <>
       {/* Mobile Toggle Button */}
       <button
-        className="lg:hidden fixed top-5 left-5 z-50 bg-gradient-to-r from-purple-600 to-pink-600 text-white p-3 rounded-xl shadow-lg focus:outline-none transition-transform hover:scale-110"
+        className="lg:hidden fixed top-20 left-5 z-50 bg-gradient-to-r from-purple-600 to-pink-600 text-white p-3 rounded-xl shadow-lg focus:outline-none transition-transform hover:scale-110"
         onClick={() => setIsOpen(!isOpen)}
       >
         {isOpen ? <FiX size={24} /> : <FiMenu size={24} />}
