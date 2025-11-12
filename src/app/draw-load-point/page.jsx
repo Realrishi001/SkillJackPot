@@ -86,6 +86,20 @@ const page = () => {
   });
   const [seriesTableData, setSeriesTableData] = useState([]);
   const [loading, setLoading] = useState(false);
+  // 🔹 Modal States for Draw Summary
+const [isDrawModalOpen, setIsDrawModalOpen] = useState(false);
+const [admins, setAdmins] = useState([]);
+const [modalDrawTime, setModalDrawTime] = useState("");
+const [selectedAdmin, setSelectedAdmin] = useState("");
+const [modalLoading, setModalLoading] = useState(false);
+const [modalData, setModalData] = useState({
+  series10: [],
+  series30: [],
+  series50: [],
+});
+
+const [allDrawTickets, setAllDrawTickets] = useState([]);
+
 
   // Per-table limit & paging
   const [tableStates, setTableStates] = useState({
@@ -162,24 +176,139 @@ const page = () => {
     }));
   };
 
+
+  useEffect(() => {
+  // Set default modal draw time = current slot (e.g., 06:30 PM)
+  const now = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+  const date = new Date(now);
+  const hours = date.getHours();
+  const minutes = date.getMinutes() >= 30 ? 30 : 0;
+  const h12 = hours % 12 || 12;
+  const ampm = hours < 12 ? "AM" : "PM";
+  const formatted = `${String(h12).padStart(2, "0")}:${String(minutes).padStart(2, "0")} ${ampm}`;
+  setModalDrawTime(formatted);
+}, []);
+
+
 useEffect(() => {
   // Get current Indian time (IST)
   const now = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
   const currentTime = new Date(now);
-  const hours = currentTime.getHours();
-  const minutes = currentTime.getMinutes();
 
-  const roundedMinutes = minutes < 30 ? 0 : 30;
+  // current hours/minutes in 24-hr
+  let hours = currentTime.getHours();
+  let minutes = currentTime.getMinutes();
 
-  const displayHours = ((hours + 11) % 12 + 1); // 0->12, 13->1 etc.
+  // Round UP to next 15-minute slot:
+  const remainder = minutes % 15;
+  if (remainder !== 0) {
+    minutes += (15 - remainder);
+    if (minutes === 60) {
+      minutes = 0;
+      hours = (hours + 1) % 24; // rollover to next hour/day
+    }
+  }
+
+  // Format to 12-hour with zero-padded hours and minutes
+  const hours12 = hours % 12 === 0 ? 12 : hours % 12;
+  const hourStr = String(hours12).padStart(2, "0");
+  const minuteStr = String(minutes).padStart(2, "0");
   const ampm = hours < 12 ? "AM" : "PM";
-  const displayMinutes = roundedMinutes === 0 ? "00" : "30";
-  const slot = `${displayHours}:${displayMinutes} ${ampm}`;
+  const slot = `${hourStr}:${minuteStr} ${ampm}`;
 
   setTime(slot);
   fetchAll();
-
 }, []);
+
+
+useEffect(() => {
+  const fetchAdmins = async () => {
+    try {
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/get-all-admins`);
+      setAdmins(res.data.admins || []);
+    } catch {
+      setAdmins([]);
+    }
+  };
+  fetchAdmins();
+}, []);
+
+
+
+
+const handleModalSearch = async () => {
+  if (!modalDrawTime) {
+    alert("Draw time missing!");
+    return;
+  }
+
+  setModalLoading(true);
+  try {
+    // Filter by draw time and selected shop
+    let filtered = allDrawTickets;
+
+    if (selectedAdmin) {
+      filtered = filtered.filter(t => t.shopName === selectedAdmin);
+    }
+
+    // Extract only draws matching selected draw time
+    const drawData = filtered.flatMap(shop =>
+      shop.draws.filter(d => d.drawTime === modalDrawTime)
+    );
+
+    // Flatten all series into a consistent structure for tables
+    const series10 = drawData.flatMap(d =>
+      d.series10.map(s => ({ shop: selectedAdmin || d.shopName, ...s }))
+    );
+    const series30 = drawData.flatMap(d =>
+      d.series30.map(s => ({ shop: selectedAdmin || d.shopName, ...s }))
+    );
+    const series50 = drawData.flatMap(d =>
+      d.series50.map(s => ({ shop: selectedAdmin || d.shopName, ...s }))
+    );
+
+    setModalData({ series10, series30, series50 });
+  } catch (err) {
+    console.error("Error filtering modal data:", err);
+    setModalData({ series10: [], series30: [], series50: [] });
+  } finally {
+    setModalLoading(false);
+  }
+};
+
+
+const renderModalSeriesTable = (seriesKey, color, title) => (
+  <div className="bg-slate-800 rounded-xl p-4 border border-slate-700 shadow-md">
+    <h3 className={`text-xl font-bold mb-3 ${color}`}>{title}</h3>
+    <table className="w-full text-sm text-slate-300">
+      <thead>
+        <tr className="border-b border-slate-600">
+          <th className="py-2 text-left">Shop</th>
+          <th className="py-2 text-left">Ticket</th>
+          <th className="py-2 text-left">Qty</th>
+        </tr>
+      </thead>
+      <tbody>
+        {(modalData[seriesKey] || []).length === 0 ? (
+          <tr>
+            <td colSpan={3} className="text-center text-slate-500 py-4">
+              No data found
+            </td>
+          </tr>
+        ) : (
+          modalData[seriesKey].map((item, idx) => (
+            <tr key={idx} className="border-b border-slate-700">
+              <td>{item.shop}</td>
+              <td>{item.ticketNumber}</td>
+              <td>{item.quantity}</td>
+            </tr>
+          ))
+        )}
+      </tbody>
+    </table>
+  </div>
+);
+
 
 
   const handleSearch = () => { fetchAll(); };
@@ -294,10 +423,51 @@ useEffect(() => {
 
           {/* Filter Section */}
           <div className="bg-gradient-to-r from-slate-800 to-slate-700 p-8 rounded-3xl shadow-2xl mb-8 border border-slate-600/30">
-            <div className="flex items-center gap-3 mb-6">
-              <FaFilter className="text-purple-400 text-xl" />
-              <h2 className="text-xl font-semibold text-white">Filter Options</h2>
-            </div>
+           <div className="flex items-center justify-between mb-6">
+  <div className="flex items-center gap-3">
+    <FaFilter className="text-purple-400 text-xl" />
+    <h2 className="text-xl font-semibold text-white">Filter Options</h2>
+  </div>
+<button
+  onClick={async () => {
+    // Always open with current time
+    const now = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+    const date = new Date(now);
+    const hours = date.getHours();
+    const minutes = date.getMinutes() >= 30 ? 30 : 0;
+    const h12 = hours % 12 || 12;
+    const ampm = hours < 12 ? "AM" : "PM";
+    const formatted = `${String(h12).padStart(2, "0")}:${String(minutes).padStart(2, "0")} ${ampm}`;
+    setModalDrawTime(formatted);
+    setIsDrawModalOpen(true);
+    
+    // 🔹 Fetch tickets by admin immediately
+    try {
+      setModalLoading(true);
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/tickets-by-admin`);
+      const tickets = res.data.tickets || [];
+      setAllDrawTickets(tickets);
+      // Extract unique shop names from tickets
+      const uniqueShops = [...new Set(tickets.map(t => t.shopName))];
+      setAdmins(uniqueShops.map(shop => ({ shopName: shop })));
+    } catch (err) {
+      console.error("Error fetching draw summary data:", err);
+      setAllDrawTickets([]);
+      setAdmins([]);
+    } finally {
+      setModalLoading(false);
+    }
+  }}
+  className="bg-gradient-to-r from-purple-600 to-pink-600 text-white py-2 px-5 rounded-sm hover:from-purple-700 hover:to-pink-700 flex items-center gap-2 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+>
+  <FaSearch className="text-sm" />
+  <span className="font-semibold text-sm">View Draw Summary</span>
+</button>
+
+
+
+</div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               <div className="space-y-3">
                 <label className="flex items-center gap-2 text-sm font-medium text-slate-300">
@@ -317,25 +487,27 @@ useEffect(() => {
                   Select Time
                 </label>
                 <select
-  value={time}
-  onChange={e => setTime(e.target.value)}
-  className="w-full px-6 py-4 bg-slate-800 border border-white/20 text-white outline-none rounded-xl focus:ring-2 focus:ring-purple-400 hover:bg-slate-700 appearance-none transparent-scrollbar"
->
-  <option value="" className="bg-slate-800 text-white">All Times</option>
-  {[...Array(96).keys()].map(i => {
-    const hours = Math.floor(i / 4);
-    const minutes = (i % 4) * 15;
-    const hours12 = hours % 12 === 0 ? 12 : hours % 12;
-    const ampm = hours < 12 ? "AM" : "PM";
-    const minuteStr = minutes.toString().padStart(2, "0");
-    const timeStr = `${hours12}:${minuteStr} ${ampm}`;
-    return (
-      <option key={i} value={timeStr} className="bg-slate-800 text-white">
-        {timeStr}
-      </option>
-    );
-  })}
-</select>
+      value={time}
+      onChange={e => setTime(e.target.value)}
+      className="w-full px-6 py-4 bg-slate-800 border border-white/20 text-white outline-none rounded-xl focus:ring-2 focus:ring-purple-400 hover:bg-slate-700 appearance-none transparent-scrollbar"
+    >
+      <option value="" className="bg-slate-800 text-white">All Times</option>
+      {[...Array(96).keys()].map(i => {
+  const hours = Math.floor(i / 4);
+  const minutes = (i % 4) * 15;
+  const hours12 = hours % 12 === 0 ? 12 : hours % 12;
+  const ampm = hours < 12 ? "AM" : "PM";
+  const hourStr = hours12.toString().padStart(2, "0"); // zero-padded hour
+  const minuteStr = minutes.toString().padStart(2, "0");
+  const timeStr = `${hourStr}:${minuteStr} ${ampm}`;
+  return (
+    <option key={i} value={timeStr} className="bg-slate-800 text-white">
+      {timeStr}
+    </option>
+  );
+})}
+
+    </select>
 
               </div>
               <div className="flex items-end">
@@ -425,6 +597,74 @@ useEffect(() => {
           </div>
         </div>
       </div>
+
+      {isDrawModalOpen && (
+  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="bg-gradient-to-b from-slate-900 to-slate-800 rounded-2xl p-8 w-full max-w-6xl shadow-2xl border border-slate-700 relative">
+      <button
+        onClick={() => setIsDrawModalOpen(false)}
+        className="absolute top-4 right-4 text-slate-400 hover:text-white text-xl"
+      >
+        ✖
+      </button>
+      <h2 className="text-3xl font-bold text-center bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-6">
+        Draw Summary
+      </h2>
+
+      <div className="flex flex-col md:flex-row gap-4 mb-8 justify-center">
+      <select
+        value={modalDrawTime}
+        onChange={(e) => setModalDrawTime(e.target.value)}
+        className="flex-1 px-4 py-3 bg-slate-800 border transparent-scrollbar border-slate-600 text-white rounded-lg"
+      >
+        <option value="">Select Draw Time</option>
+        {[...Array(96).keys()].map((i) => {
+          const hours = Math.floor(i / 4);
+          const minutes = (i % 4) * 15;
+          const hours12 = hours % 12 === 0 ? 12 : hours % 12;
+          const ampm = hours < 12 ? "AM" : "PM";
+          const minuteStr = minutes.toString().padStart(2, "0");
+          const timeStr = `${hours12}:${minuteStr} ${ampm}`;
+          return (
+            <option key={i} value={timeStr}>
+              {timeStr}
+            </option>
+          );
+        })}
+      </select>
+<select
+  value={selectedAdmin}
+  onChange={(e) => setSelectedAdmin(e.target.value)}
+  className="flex-1 px-4 py-3 bg-slate-800 border border-slate-600 text-white rounded-lg"
+>
+  <option value="">Select Shop</option>
+  {admins.map((a) => (
+    <option key={a.shopName} value={a.shopName}>{a.shopName}</option>
+  ))}
+</select>
+
+
+        <button
+          onClick={handleModalSearch}
+          className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 font-semibold"
+        >
+          Search
+        </button>
+      </div>
+
+      {modalLoading ? (
+        <p className="text-center text-slate-400 py-6">Loading data...</p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {renderModalSeriesTable("series10", "text-purple-400", "10 Series")}
+          {renderModalSeriesTable("series30", "text-pink-400", "30 Series")}
+          {renderModalSeriesTable("series50", "text-blue-400", "50 Series")}
+        </div>
+      )}
+    </div>
+  </div>
+)}
+
     </div>
   );
 };
