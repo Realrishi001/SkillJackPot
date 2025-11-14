@@ -258,7 +258,46 @@ const page = () => {
   const closeViewAllModal = () => setIsViewAllModalOpen(false);
   const openWinningPercentageModal = () => setIsWinningPercentageModalOpen(true);
   const closeWinningPercentageModal = () => setIsWinningPercentageModalOpen(false);
-  const handleSlotConfirm = (slots) => setSelectedSlots(slots);
+  
+  const handleSlotConfirm = async (slots) => {
+    setSelectedSlots(slots);
+
+    if (slots.length === 1) {
+      const DrawTime = slots[0];
+      const drawDate = new Date().toISOString().split("T")[0];
+
+      try {
+        const res = await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}/get-saved-winner-numbers`, {
+          drawDate,
+          DrawTime
+        });
+
+        if (res.data.exists) {
+          // SET FIXED VALUES IN UI
+          const saved = res.data.data.winningNumbers;
+
+          // Extract values back into UI columns
+          const s10 = saved.filter(n => n.number.startsWith("1")).map(n => n.number);
+          const s30 = saved.filter(n => n.number.startsWith("3")).map(n => n.number);
+          const s50 = saved.filter(n => n.number.startsWith("5")).map(n => n.number);
+
+          setApiOutputs({
+            series10: s10,
+            series30: s30,
+            series50: s50
+          });
+
+          toast.success("Loaded saved winning numbers!");
+        } 
+        else {
+          console.log("No saved data → using generated values");
+        }
+      } catch (err) {
+        console.log("Error checking saved numbers:", err);
+      }
+    }
+  };
+
 
   return (
     <div className="flex min-h-screen">

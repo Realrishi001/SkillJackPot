@@ -101,11 +101,7 @@ const handleSubmit = async (e) => {
               </button>
             </div>
           </form>
-          <div className="text-center mt-6">
-            <p className="text-gray-400 text-sm">
-              Secure super admin access • Protected by encryption
-            </p>
-          </div>
+          
         </div>
       </div>
     </div>
