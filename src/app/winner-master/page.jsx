@@ -1,14 +1,17 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import Navbar from '@/Components/Navbar/Navbar';
-import Sidebar from '@/Components/Sidebar/Sidebar';
-import { FaRegCheckCircle, FaRegTimesCircle, FaSave, FaClock } from 'react-icons/fa';
-import AddWinningDraw from '@/Components/AddWinningDraw/AddWinningDraw';
-import ViewWinningTicketsModal from '@/Components/ViewWinningTicketsModal/ViewWinningTicketsModal';
-import ViewAllTicket from '@/Components/ViewAllTicket/ViewAllTicket';
-import UpdateWinningPercentageModal from '@/Components/SetWinningPercentage/SetWinningPercentage';
-import axios from 'axios';
+import React, { useState, useEffect } from "react";
+import Navbar from "@/Components/Navbar/Navbar";
+import Sidebar from "@/Components/Sidebar/Sidebar";
+import { FaRegCheckCircle, FaRegTimesCircle, FaClock } from "react-icons/fa";
+import AddWinningDraw from "@/Components/AddWinningDraw/AddWinningDraw";
+import ViewWinningTicketsModal from "@/Components/ViewWinningTicketsModal/ViewWinningTicketsModal";
+import ViewAllTicket from "@/Components/ViewAllTicket/ViewAllTicket";
+import UpdateWinningPercentageModal from "@/Components/SetWinningPercentage/SetWinningPercentage";
+import axios from "axios";
+
+// --- API BASE ---
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
 
 // --- DRAW TIMES ---
 const DRAW_TIMES = [
@@ -26,11 +29,10 @@ const DRAW_TIMES = [
   "8:00 PM", "8:15 PM", "8:30 PM", "8:45 PM",
   "9:00 PM", "9:15 PM", "9:30 PM", "9:45 PM",
   "10:00 PM", "10:15 PM", "10:30 PM", "10:45 PM",
-  "11:00 PM"
+  "11:00 PM",
 ];
 
-
-// --- Slot Selection Modal ---
+// --- TIME HELPERS ---
 function isTimePassed(drawTime) {
   const now = new Date();
   const [time, period] = drawTime.split(" ");
@@ -48,7 +50,28 @@ function isTimePassed(drawTime) {
   return drawDate < now;
 }
 
-function AdvanceDrawModal({ open, onClose, selectedTimes, setSelectedTimes, onConfirm }) {
+// Normalize to "HH:MM AM/PM" (e.g. "2:30 pm" → "02:30 PM")
+function normalizeDrawTime(time) {
+  if (!time) return "";
+  let clean = String(time).trim().toUpperCase();
+  clean = clean.replace(/(AM|PM)/, " $1").trim(); // ensure space before AM/PM
+
+  const match = clean.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/);
+  if (!match) return clean;
+
+  let [, h, m, p] = match;
+  h = h.padStart(2, "0");
+  return `${h}:${m} ${p}`;
+}
+
+// --- Slot Selection Modal ---
+function AdvanceDrawModal({
+  open,
+  onClose,
+  selectedTimes,
+  setSelectedTimes,
+  onConfirm,
+}) {
   if (!open) return null;
   const toggleTime = (time) => {
     setSelectedTimes((prev) =>
@@ -67,7 +90,9 @@ function AdvanceDrawModal({ open, onClose, selectedTimes, setSelectedTimes, onCo
             return (
               <label
                 key={time}
-                className={`flex items-center gap-2 cursor-pointer ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                className={`flex items-center gap-2 cursor-pointer ${
+                  disabled ? "opacity-50 cursor-not-allowed" : ""
+                }`}
               >
                 <input
                   type="checkbox"
@@ -103,17 +128,18 @@ function AdvanceDrawModal({ open, onClose, selectedTimes, setSelectedTimes, onCo
   );
 }
 
-const page = () => {
+const Page = () => {
   // Modal UI states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isViewAllModalOpen, setIsViewAllModalOpen] = useState(false);
   const [isManual, setIsManual] = useState(true);
-  const [isWinningPercentageModalOpen, setIsWinningPercentageModalOpen] = useState(false);
+  const [isWinningPercentageModalOpen, setIsWinningPercentageModalOpen] =
+    useState(false);
   const [winningPercentage, setWinningPercentage] = useState(50);
   const [slotsModalOpen, setSlotsModalOpen] = useState(false);
   const [selectedSlots, setSelectedSlots] = useState([]);
-  const [resultMessage, setResultMessage] = useState('');
+  const [resultMessage, setResultMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
   // Series base numbers
@@ -122,51 +148,134 @@ const page = () => {
   const column3Base = [50, 51, 52, 53, 54, 55, 56, 57, 58, 59];
 
   // User inputs (only 2 digits allowed)
-  const [column1Numbers, setColumn1Numbers] = useState(Array(10).fill(''));
-  const [column2Numbers, setColumn2Numbers] = useState(Array(10).fill(''));
-  const [column3Numbers, setColumn3Numbers] = useState(Array(10).fill(''));
+  const [column1Numbers, setColumn1Numbers] = useState(Array(10).fill(""));
+  const [column2Numbers, setColumn2Numbers] = useState(Array(10).fill(""));
+  const [column3Numbers, setColumn3Numbers] = useState(Array(10).fill(""));
 
-  // Outputs from backend API
+  // Outputs from backend API (these feed the GREEN boxes)
   const [apiOutputs, setApiOutputs] = useState({
-    series10: Array(10).fill(''),
-    series30: Array(10).fill(''),
-    series50: Array(10).fill(''),
+    series10: Array(10).fill(""),
+    series30: Array(10).fill(""),
+    series50: Array(10).fill(""),
   });
 
+  // ---------- Fetch random numbers on mount ----------
   useEffect(() => {
     const fetchApiOutputs = async () => {
       try {
-        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/winner-master-manual`);
+        const res = await axios.get(`${API_BASE}/winner-master-manual`);
         setApiOutputs({
-          series10: res.data.series10 || Array(10).fill(''),
-          series30: res.data.series30 || Array(10).fill(''),
-          series50: res.data.series50 || Array(10).fill(''),
+          series10: res.data.series10 || Array(10).fill(""),
+          series30: res.data.series30 || Array(10).fill(""),
+          series50: res.data.series50 || Array(10).fill(""),
         });
       } catch (err) {
-        console.error('Failed to fetch series numbers:', err);
+        console.error("Failed to fetch series numbers:", err);
       }
     };
     fetchApiOutputs();
   }, []);
 
+  // ---------- Helper to load saved winning numbers for a slot ----------
+  const loadSavedForSlot = async (timeLabel) => {
+    if (!timeLabel) return;
+
+    const drawDate = new Date().toISOString().split("T")[0];
+    const DrawTime = normalizeDrawTime(timeLabel); // e.g. "2:30 PM" → "02:30 PM"
+
+    try {
+      const res = await axios.post(`${API_BASE}/get-saved-winner-numbers`, {
+        drawDate,
+        DrawTime,
+      });
+
+      if (res.data?.exists && res.data?.data?.winningNumbers) {
+        let raw = res.data.data.winningNumbers;
+        let arr = [];
+
+        try {
+          if (Array.isArray(raw)) {
+            arr = raw;
+          } else {
+            arr = JSON.parse(raw);
+          }
+        } catch (e) {
+          console.error("Failed to parse winningNumbers from DB:", e, raw);
+        }
+
+        if (!Array.isArray(arr)) arr = [];
+
+        // We saved numbers as: 10,30,50,11,31,51,... so:
+        // index % 3 === 0 → 10-19 series
+        // index % 3 === 1 → 30-39 series
+        // index % 3 === 2 → 50-59 series
+        const s10 = [];
+        const s30 = [];
+        const s50 = [];
+
+        arr.forEach((item, idx) => {
+          const num = String(item.number || item).replace(/\D/g, "");
+          if (!num) return;
+          if (idx % 3 === 0 && s10.length < 10) s10.push(num);
+          else if (idx % 3 === 1 && s30.length < 10) s30.push(num);
+          else if (idx % 3 === 2 && s50.length < 10) s50.push(num);
+        });
+
+        // Pad with empty strings if anything missing
+        while (s10.length < 10) s10.push("");
+        while (s30.length < 10) s30.push("");
+        while (s50.length < 10) s50.push("");
+
+        setApiOutputs({
+          series10: s10,
+          series30: s30,
+          series50: s50,
+        });
+
+        setResultMessage("Loaded saved winning numbers for this slot.");
+      } else {
+        // No saved result → keep random numbers
+        setResultMessage("");
+      }
+    } catch (err) {
+      console.error("Error checking saved numbers:", err);
+    }
+  };
+
+  // ---------- On page load: pick default slot & try loading saved result ----------
+  useEffect(() => {
+    // Find first NON-passed slot; if all passed, pick the last one
+    let defaultSlot = null;
+    for (const t of DRAW_TIMES) {
+      if (!isTimePassed(t)) {
+        defaultSlot = t;
+        break;
+      }
+    }
+    if (!defaultSlot) defaultSlot = DRAW_TIMES[DRAW_TIMES.length - 1];
+
+    setSelectedSlots([defaultSlot]);
+    loadSavedForSlot(defaultSlot);
+  }, []);
+
   // Manual/Auto mode toggle
-  const toggleMode = () => setIsManual(m => !m);
+  const toggleMode = () => setIsManual((m) => !m);
 
   // Input change handlers
   const handleColumn1Change = (index, value) => {
-    const sanitized = value.replace(/\D/g, '').slice(0, 2);
+    const sanitized = value.replace(/\D/g, "").slice(0, 2);
     const arr = [...column1Numbers];
     arr[index] = sanitized;
     setColumn1Numbers(arr);
   };
   const handleColumn2Change = (index, value) => {
-    const sanitized = value.replace(/\D/g, '').slice(0, 2);
+    const sanitized = value.replace(/\D/g, "").slice(0, 2);
     const arr = [...column2Numbers];
     arr[index] = sanitized;
     setColumn2Numbers(arr);
   };
   const handleColumn3Change = (index, value) => {
-    const sanitized = value.replace(/\D/g, '').slice(0, 2);
+    const sanitized = value.replace(/\D/g, "").slice(0, 2);
     const arr = [...column3Numbers];
     arr[index] = sanitized;
     setColumn3Numbers(arr);
@@ -175,20 +284,26 @@ const page = () => {
   // Generate the green-box number
   const getFinalValue = (apiVal, userInput, base) => {
     let backendValue = apiVal || `${base}00`;
-    backendValue = String(backendValue).replace(/\D/g, '');
-    if (backendValue.length < 4) backendValue = backendValue.padEnd(4, '0');
+    backendValue = String(backendValue).replace(/\D/g, "");
+    if (backendValue.length < 4) backendValue = backendValue.padEnd(4, "0");
     const prefix = backendValue.slice(0, backendValue.length - 2);
     const defaultSuffix = backendValue.slice(-2);
     return prefix + (userInput !== "" ? userInput.padStart(2, "0") : defaultSuffix);
   };
 
-  // Prepare winning numbers array for API
+  // Prepare winning numbers array for API (10 from each series = 30 total)
   const getAllWinningNumbers = () => {
     const numbers = [];
     for (let i = 0; i < 10; i++) {
-      numbers.push({ number: getFinalValue(apiOutputs.series10[i], column1Numbers[i], column1Base[i]) });
-      numbers.push({ number: getFinalValue(apiOutputs.series30[i], column2Numbers[i], column2Base[i]) });
-      numbers.push({ number: getFinalValue(apiOutputs.series50[i], column3Numbers[i], column3Base[i]) });
+      numbers.push({
+        number: getFinalValue(apiOutputs.series10[i], column1Numbers[i], column1Base[i]),
+      });
+      numbers.push({
+        number: getFinalValue(apiOutputs.series30[i], column2Numbers[i], column2Base[i]),
+      });
+      numbers.push({
+        number: getFinalValue(apiOutputs.series50[i], column3Numbers[i], column3Base[i]),
+      });
     }
     return numbers;
   };
@@ -197,31 +312,31 @@ const page = () => {
   const calculateTotalPoints = () => 30;
 
   const handleShuffleNumbers = async () => {
-  setLoading(true);
-  setResultMessage('');
-  try {
-    // Replace with your actual backend endpoint!
-    const res = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/winner-master-manual`);
-    setApiOutputs({
-      series10: res.data.series10 || Array(10).fill(''),
-      series30: res.data.series30 || Array(10).fill(''),
-      series50: res.data.series50 || Array(10).fill(''),
-    });
-    // Optionally clear user inputs:
-    setColumn1Numbers(Array(10).fill(''));
-    setColumn2Numbers(Array(10).fill(''));
-    setColumn3Numbers(Array(10).fill(''));
-    setResultMessage("Shuffled random numbers generated!");
-  } catch (error) {
-    setResultMessage("Error shuffling numbers: " + (error?.response?.data?.message || error.message));
-  }
-  setLoading(false);
-};
-
+    setLoading(true);
+    setResultMessage("");
+    try {
+      const res = await axios.get(`${API_BASE}/winner-master-manual`);
+      setApiOutputs({
+        series10: res.data.series10 || Array(10).fill(""),
+        series30: res.data.series30 || Array(10).fill(""),
+        series50: res.data.series50 || Array(10).fill(""),
+      });
+      setColumn1Numbers(Array(10).fill(""));
+      setColumn2Numbers(Array(10).fill(""));
+      setColumn3Numbers(Array(10).fill(""));
+      setResultMessage("Shuffled random numbers generated!");
+    } catch (error) {
+      setResultMessage(
+        "Error shuffling numbers: " +
+          (error?.response?.data?.message || error.message)
+      );
+    }
+    setLoading(false);
+  };
 
   // Save logic for all selected slots
   const handleSaveAllData = async () => {
-    setResultMessage('');
+    setResultMessage("");
     if (!selectedSlots.length) {
       setResultMessage("Please select at least one draw slot.");
       return;
@@ -230,21 +345,30 @@ const page = () => {
     try {
       const numbers = getAllWinningNumbers();
       const totalPoints = calculateTotalPoints();
-      const drawDate = new Date().toISOString().split('T')[0];
+      const drawDate = new Date().toISOString().split("T")[0];
       let results = [];
-      for (const DrawTime of selectedSlots) {
+
+      for (const rawTime of selectedSlots) {
+        const DrawTime = normalizeDrawTime(rawTime); // ✅ save as "HH:MM AM/PM"
         const payload = {
           winningNumbers: numbers,
           totalPoints,
           DrawTime,
           drawDate,
         };
-        const res = await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}/winner-master-manual-save`, payload);
+        const res = await axios.post(
+          `${API_BASE}/winner-master-manual-save`,
+          payload
+        );
         results.push({ DrawTime, ...res.data });
       }
+
       setResultMessage("Winning numbers saved for all selected slots!");
     } catch (error) {
-      setResultMessage("Error saving winning numbers: " + (error?.response?.data?.message || error.message));
+      setResultMessage(
+        "Error saving winning numbers: " +
+          (error?.response?.data?.message || error.message)
+      );
     }
     setLoading(false);
   };
@@ -256,48 +380,23 @@ const page = () => {
   const closeViewModal = () => setIsViewModalOpen(false);
   const openViewAllModal = () => setIsViewAllModalOpen(true);
   const closeViewAllModal = () => setIsViewAllModalOpen(false);
-  const openWinningPercentageModal = () => setIsWinningPercentageModalOpen(true);
-  const closeWinningPercentageModal = () => setIsWinningPercentageModalOpen(false);
-  
+  const openWinningPercentageModal = () =>
+    setIsWinningPercentageModalOpen(true);
+  const closeWinningPercentageModal = () =>
+    setIsWinningPercentageModalOpen(false);
+
+  // When slots are confirmed from modal
   const handleSlotConfirm = async (slots) => {
     setSelectedSlots(slots);
 
+    // If exactly one slot is chosen, try to load its saved winning numbers
     if (slots.length === 1) {
-      const DrawTime = slots[0];
-      const drawDate = new Date().toISOString().split("T")[0];
-
-      try {
-        const res = await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}/get-saved-winner-numbers`, {
-          drawDate,
-          DrawTime
-        });
-
-        if (res.data.exists) {
-          // SET FIXED VALUES IN UI
-          const saved = res.data.data.winningNumbers;
-
-          // Extract values back into UI columns
-          const s10 = saved.filter(n => n.number.startsWith("1")).map(n => n.number);
-          const s30 = saved.filter(n => n.number.startsWith("3")).map(n => n.number);
-          const s50 = saved.filter(n => n.number.startsWith("5")).map(n => n.number);
-
-          setApiOutputs({
-            series10: s10,
-            series30: s30,
-            series50: s50
-          });
-
-          toast.success("Loaded saved winning numbers!");
-        } 
-        else {
-          console.log("No saved data → using generated values");
-        }
-      } catch (err) {
-        console.log("Error checking saved numbers:", err);
-      }
+      await loadSavedForSlot(slots[0]);
+    } else {
+      // Multiple slots → keep existing random/generated values
+      setResultMessage("");
     }
   };
-
 
   return (
     <div className="flex min-h-screen">
@@ -315,20 +414,31 @@ const page = () => {
                 <h1 className="text-5xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-2">
                   Winner Master
                 </h1>
-                <p className="text-slate-400 text-lg">Manage lottery draws and winning tickets</p>
+                <p className="text-slate-400 text-lg">
+                  Manage lottery draws and winning tickets
+                </p>
               </div>
-              {/* Slots Section Button */}
+
+              {/* Slots / Mode / Percentage */}
               <div className="flex items-center gap-4">
                 <span className="text-white font-medium">Mode:</span>
                 <button
                   onClick={toggleMode}
                   className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 ${
                     isManual
-                      ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white'
-                      : 'bg-gradient-to-r from-green-600 to-blue-600 text-white'
+                      ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white"
+                      : "bg-gradient-to-r from-green-600 to-blue-600 text-white"
                   }`}
                 >
-                  {isManual ? <><FaRegCheckCircle /> Manual</> : <><FaRegTimesCircle /> Auto</>}
+                  {isManual ? (
+                    <>
+                      <FaRegCheckCircle /> Manual
+                    </>
+                  ) : (
+                    <>
+                      <FaRegTimesCircle /> Auto
+                    </>
+                  )}
                 </button>
                 <button
                   onClick={() => setSlotsModalOpen(true)}
@@ -343,8 +453,8 @@ const page = () => {
                   % Winning Percentage
                 </button>
               </div>
-
             </div>
+
             {/* Selected Slots Preview */}
             {selectedSlots.length > 0 && (
               <div className="mt-4">
@@ -354,8 +464,15 @@ const page = () => {
                 </span>
               </div>
             )}
+
             {resultMessage && (
-              <div className={`mt-4 px-4 py-3 rounded-lg ${resultMessage.includes('Error') ? 'bg-red-200 text-red-700' : 'bg-green-200 text-green-800'}`}>
+              <div
+                className={`mt-4 px-4 py-3 rounded-lg ${
+                  resultMessage.includes("Error")
+                    ? "bg-red-200 text-red-700"
+                    : "bg-green-200 text-green-800"
+                }`}
+              >
                 {resultMessage}
               </div>
             )}
@@ -365,7 +482,9 @@ const page = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Column 1: Range 10-19 */}
             <div className="bg-gradient-to-r from-slate-800 to-slate-700 p-3 rounded-2xl shadow-xl border border-slate-600/30">
-              <h2 className="text-lg font-semibold text-white mb-3">Range 10-19</h2>
+              <h2 className="text-lg font-semibold text-white mb-3">
+                Range 10-19
+              </h2>
               {column1Base.map((base, index) => (
                 <div key={index} className="flex items-center gap-2 mb-2">
                   <div className="w-16 bg-purple-600/30 border border-purple-500/50 rounded-lg text-center py-3 text-white font-bold">
@@ -374,13 +493,19 @@ const page = () => {
                   <input
                     type="number"
                     value={column1Numbers[index]}
-                    onChange={(e) => handleColumn1Change(index, e.target.value)}
+                    onChange={(e) =>
+                      handleColumn1Change(index, e.target.value)
+                    }
                     className="flex-1 bg-white/10 border border-white/20 text-white px-3 py-3 rounded-lg text-center"
                     placeholder="00"
                     max="99"
                   />
                   <div className="w-20 bg-green-600/20 border border-green-500/30 rounded-lg text-center py-3 text-green-400 font-bold">
-                    {getFinalValue(apiOutputs.series10[index], column1Numbers[index], base)}
+                    {getFinalValue(
+                      apiOutputs.series10[index],
+                      column1Numbers[index],
+                      base
+                    )}
                   </div>
                 </div>
               ))}
@@ -388,7 +513,9 @@ const page = () => {
 
             {/* Column 2: Range 30-39 */}
             <div className="bg-gradient-to-r from-slate-800 to-slate-700 p-3 rounded-2xl shadow-xl border border-slate-600/30">
-              <h2 className="text-lg font-semibold text-white mb-3">Range 30-39</h2>
+              <h2 className="text-lg font-semibold text-white mb-3">
+                Range 30-39
+              </h2>
               {column2Base.map((base, index) => (
                 <div key={index} className="flex items-center gap-2 mb-2">
                   <div className="w-16 bg-purple-600/30 border border-purple-500/50 rounded-lg text-center py-3 text-white font-bold">
@@ -397,13 +524,19 @@ const page = () => {
                   <input
                     type="number"
                     value={column2Numbers[index]}
-                    onChange={(e) => handleColumn2Change(index, e.target.value)}
+                    onChange={(e) =>
+                      handleColumn2Change(index, e.target.value)
+                    }
                     className="flex-1 bg-white/10 border border-white/20 text-white px-3 py-3 rounded-lg text-center"
                     placeholder="00"
                     max="99"
                   />
                   <div className="w-20 bg-green-600/20 border border-green-500/30 rounded-lg text-center py-3 text-green-400 font-bold">
-                    {getFinalValue(apiOutputs.series30[index], column2Numbers[index], base)}
+                    {getFinalValue(
+                      apiOutputs.series30[index],
+                      column2Numbers[index],
+                      base
+                    )}
                   </div>
                 </div>
               ))}
@@ -411,7 +544,9 @@ const page = () => {
 
             {/* Column 3: Range 50-59 */}
             <div className="bg-gradient-to-r from-slate-800 to-slate-700 p-3 rounded-2xl shadow-xl border border-slate-600/30">
-              <h2 className="text-lg font-semibold text-white mb-3">Range 50-59</h2>
+              <h2 className="text-lg font-semibold text-white mb-3">
+                Range 50-59
+              </h2>
               {column3Base.map((base, index) => (
                 <div key={index} className="flex items-center gap-2 mb-2">
                   <div className="w-16 bg-purple-600/30 border border-purple-500/50 rounded-lg text-center py-3 text-white font-bold">
@@ -420,13 +555,19 @@ const page = () => {
                   <input
                     type="number"
                     value={column3Numbers[index]}
-                    onChange={(e) => handleColumn3Change(index, e.target.value)}
+                    onChange={(e) =>
+                      handleColumn3Change(index, e.target.value)
+                    }
                     className="flex-1 bg-white/10 border border-white/20 text-white px-3 py-3 rounded-lg text-center"
                     placeholder="00"
                     max="99"
                   />
                   <div className="w-20 bg-green-600/20 border border-green-500/30 rounded-lg text-center py-3 text-green-400 font-bold">
-                    {getFinalValue(apiOutputs.series50[index], column3Numbers[index], base)}
+                    {getFinalValue(
+                      apiOutputs.series50[index],
+                      column3Numbers[index],
+                      base
+                    )}
                   </div>
                 </div>
               ))}
@@ -435,32 +576,35 @@ const page = () => {
 
           {/* Actions */}
           <div className="mt-8 space-x-10 bg-gradient-to-r from-slate-800 to-slate-700 p-6 rounded-2xl shadow-xl border border-slate-600/30 text-center">
-          <button
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold ml-4"
-            disabled={loading}
-            onClick={handleShuffleNumbers}
-          >
-            Shuffle Numbers
-          </button>
+            <button
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold ml-4"
+              disabled={loading}
+              onClick={handleShuffleNumbers}
+            >
+              Shuffle Numbers
+            </button>
 
             <button
               className="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold"
               disabled={loading}
               onClick={handleSaveAllData}
             >
-              {loading ? "Saving..." : <> Save All Data</>}
+              {loading ? "Saving..." : <>Save All Data</>}
             </button>
           </div>
         </div>
 
         {/* Modals */}
         <AddWinningDraw isOpen={isModalOpen} onClose={closeModal} />
-        <ViewWinningTicketsModal isOpen={isViewModalOpen} onClose={closeViewModal} />
+        <ViewWinningTicketsModal
+          isOpen={isViewModalOpen}
+          onClose={closeViewModal}
+        />
         <ViewAllTicket isOpen={isViewAllModalOpen} onClose={closeViewAllModal} />
         <UpdateWinningPercentageModal
           isOpen={isWinningPercentageModalOpen}
           onClose={closeWinningPercentageModal}
-          onUpdate={val => setWinningPercentage(val)}
+          onUpdate={(val) => setWinningPercentage(val)}
           currentPercentage={winningPercentage}
         />
 
@@ -477,4 +621,4 @@ const page = () => {
   );
 };
 
-export default page;
+export default Page;
