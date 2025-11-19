@@ -13,7 +13,6 @@ import axios from "axios";
 // --- API BASE ---
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
 
-// --- DRAW TIMES ---
 const DRAW_TIMES = [
   "9:00 AM", "9:15 AM", "9:30 AM", "9:45 AM",
   "10:00 AM", "10:15 AM", "10:30 AM", "10:45 AM",
@@ -32,7 +31,6 @@ const DRAW_TIMES = [
   "11:00 PM",
 ];
 
-// --- TIME HELPERS ---
 function isTimePassed(drawTime) {
   const now = new Date();
   const [time, period] = drawTime.split(" ");
@@ -50,7 +48,6 @@ function isTimePassed(drawTime) {
   return drawDate < now;
 }
 
-// Normalize to "HH:MM AM/PM" (e.g. "2:30 pm" → "02:30 PM")
 function normalizeDrawTime(time) {
   if (!time) return "";
   let clean = String(time).trim().toUpperCase();

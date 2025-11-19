@@ -16,25 +16,47 @@ function formatTicketNumber(num) {
 // Merge rows for shop+ticketNumber+quantity, summing the quantity if needed
 function mergeRows(data, seriesKey) {
   const merged = {};
+
   data.forEach(ticket => {
     const shop = ticket.shopId || ticket.loginId;
-    if (!ticket[seriesKey]) return;
-    ticket[seriesKey].forEach(entry => {
-      const ticketNum = formatTicketNumber(entry.ticketNumber);
+
+    let seriesData = ticket[seriesKey];
+
+    // ⭐ Normalize JSON → ARRAY
+    if (typeof seriesData === "string") {
+      try {
+        seriesData = JSON.parse(seriesData);
+      } catch {
+        seriesData = [];
+      }
+    }
+
+    if (!Array.isArray(seriesData)) return;
+
+    // ⭐ Clean each entry safely
+    seriesData.forEach(entry => {
+      if (!entry || !entry.ticketNumber) return;
+
+      const ticketNum = String(entry.ticketNumber).replace("-", "");
+      const quantity = Number(entry.quantity || 0);
+
       const key = `${shop}_${ticketNum}`;
+
       if (!merged[key]) {
         merged[key] = {
           shop,
           ticketNumber: ticketNum,
-          quantity: entry.quantity
+          quantity: quantity
         };
       } else {
-        merged[key].quantity += entry.quantity;
+        merged[key].quantity += quantity;
       }
     });
   });
+
   return Object.values(merged);
 }
+
 
 // Helper to generate page numbers with ellipsis
 function getPagination(current, total) {
@@ -139,8 +161,6 @@ const [allDrawTickets, setAllDrawTickets] = useState([]);
     } catch (err) { console.error("Error fetching summary:", err); }
   };
 
-  // Fetch bottom tables via POST /table-draw-details
-  // Controller accepts ONLY drawDate; we filter by time on the client (if user selected one)
   const fetchSeriesTables = async (selectedDate, selectedTime) => {
     try {
       const res = await axios.post(
